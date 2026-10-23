@@ -1,7 +1,7 @@
 // Date.now() 기준이라 setInterval이 밀려도 시간이 정확함
 export function createStopwatch() {
   let accumulated = 0;
-  let startedAt = null;
+  let startedAt: number | null = null;
 
   return {
     start() {
@@ -25,11 +25,11 @@ export function createStopwatch() {
   };
 }
 
-export function formatTime(ms) {
+export function formatTime(ms: number) {
   const total = Math.floor(ms / 1000);
   const h = Math.floor(total / 3600);
   const m = Math.floor((total % 3600) / 60);
   const s = total % 60;
-  const pad = (n) => String(n).padStart(2, '0');
+  const pad = (n: number) => String(n).padStart(2, '0');
   return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
 }

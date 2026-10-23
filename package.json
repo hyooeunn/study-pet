@@ -3,16 +3,18 @@
   "productName": "Study Pet",
   "version": "0.1.0",
   "description": "친구들끼리 같이 쓰는 공부 데스크톱 펫",
-  "main": "src/main/main.js",
+  "main": "out/main/main.js",
   "author": "leehyoeun",
   "license": "UNLICENSED",
   "private": true,
   "scripts": {
-    "start": "electron .",
-    "dev": "electron . --devtools",
-    "start:nogpu": "electron . --no-gpu",
-    "dist:win": "electron-builder --win --publish never",
-    "dist:mac": "electron-builder --mac --publish never"
+    "dev": "node scripts/dev.mjs",
+    "build": "node scripts/build.mjs",
+    "start": "node scripts/build.mjs && electron .",
+    "start:nogpu": "node scripts/build.mjs && electron . --no-gpu",
+    "typecheck": "tsc -b",
+    "dist:win": "node scripts/build.mjs && electron-builder --win --publish never",
+    "dist:mac": "node scripts/build.mjs && electron-builder --mac --publish never"
   },
   "build": {
     "appId": "com.studypet.app",
@@ -22,7 +24,10 @@
       "buildResources": "build"
     },
     "files": [
-      "src/**/*",
+      "out/**/*",
+      "!out/**/*.map",
+      "!out/**/*.d.ts",
+      "!out/**/.tsbuildinfo*",
       "assets/**/*",
       "package.json"
     ],
@@ -59,6 +64,9 @@
     }
   },
   "devDependencies": {
-    "electron": "^45.0.0"
+    "@tailwindcss/cli": "^4.3.3",
+    "electron": "^45.0.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2"
   }
 }

@@ -1,10 +1,20 @@
+import type { Character } from './character.js';
+
 const HIDE_DELAY = 500;
 
-export function setupClickThrough({ root, character, isDragging }) {
+export function setupClickThrough({
+  root,
+  character,
+  isDragging,
+}: {
+  root: HTMLElement;
+  character: Character;
+  isDragging: () => boolean;
+}) {
   let ignoring = true;
-  let hideTimer = null;
+  let hideTimer: ReturnType<typeof setTimeout> | null = null;
 
-  function isInteractive(x, y) {
+  function isInteractive(x: number, y: number) {
     const el = document.elementFromPoint(x, y);
     if (!el) return false;
     if (el.closest('.hit-ui')) return true;
@@ -12,9 +22,9 @@ export function setupClickThrough({ root, character, isDragging }) {
     return false;
   }
 
-  function setInteractive(on) {
+  function setInteractive(on: boolean) {
     if (on) {
-      clearTimeout(hideTimer);
+      if (hideTimer) clearTimeout(hideTimer);
       hideTimer = null;
       root.classList.add('hovering');
     } else if (!hideTimer && root.classList.contains('hovering')) {
