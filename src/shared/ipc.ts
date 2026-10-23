@@ -17,6 +17,10 @@ export type MenuItemSpec =
   | { kind: 'item'; id: string; label: string; enabled?: boolean; checked?: boolean }
   | { kind: 'submenu'; label: string; submenu: MenuItemSpec[] };
 
+export interface WalkInfo {
+  dir: 1 | -1; // 1 = 오른쪽, -1 = 왼쪽
+}
+
 export interface PetAPI {
   platform: string;
   setIgnoreMouse(ignore: boolean): void;
@@ -26,4 +30,6 @@ export interface PetAPI {
   loadLayer(candidates: string[]): Promise<LayerData | null>;
   quit(): void;
   onMenuAction(callback: (id: string) => void): () => void;
+  setWanderAllowed(allowed: boolean): void;
+  onWalk(callback: (info: WalkInfo | null) => void): () => void;
 }

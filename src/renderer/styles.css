@@ -7,6 +7,7 @@
   --animate-pet-doze: pet-doze 5s ease-in-out infinite;
   --animate-pet-hop: pet-hop 0.7s ease-out infinite;
   --animate-pet-wiggle: pet-wiggle 0.35s ease-in-out infinite;
+  --animate-pet-walk: pet-walk 0.6s ease-in-out infinite;
 
   @keyframes pet-breathe {
     0%, 100% { transform: scale(1, 1); }
@@ -32,6 +33,11 @@
   @keyframes pet-wiggle {
     0%, 100% { transform: rotate(-4deg); }
     50% { transform: rotate(4deg); }
+  }
+  @keyframes pet-walk {
+    0%, 100% { transform: translateY(0) rotate(-3deg); }
+    25%, 75% { transform: translateY(-4px) rotate(0); }
+    50% { transform: translateY(0) rotate(3deg); }
   }
 }
 

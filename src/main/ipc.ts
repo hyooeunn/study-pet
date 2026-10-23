@@ -12,6 +12,7 @@ import {
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { LayerData, MenuItemSpec, MotionFrame } from '../shared/ipc.js';
+import { createWanderer } from './wander.js';
 
 const ASSETS_DIR = path.join(app.getAppPath(), 'assets');
 const MASK_SIZE = 64;
@@ -117,14 +118,24 @@ export function registerIpc(getWin: () => BrowserWindow | null) {
     return win && !win.isDestroyed() && event.sender === win.webContents ? win : null;
   };
 
+  const wanderer = createWanderer(getWin, (info) => {
+    const win = getWin();
+    if (win && !win.isDestroyed()) win.webContents.send('pet:walk', info);
+  });
+
   ipcMain.on('pet:set-ignore-mouse', (e, ignore: unknown) => {
     ownWin(e)?.setIgnoreMouseEvents(!!ignore, { forward: true });
+  });
+
+  ipcMain.on('pet:wander-allowed', (e, allowed: unknown) => {
+    if (ownWin(e)) wanderer.setAllowed(!!allowed);
   });
 
   // 드래그: main이 커서 위치를 직접 따라감 → 마우스를 빨리 움직여도 안 놓침
   ipcMain.on('pet:drag-start', (e) => {
     const win = ownWin(e);
     if (!win) return;
+    wanderer.hold('drag', true);
     stopDrag();
     const bounds = win.getBounds();
     const cursor = screen.getCursorScreenPoint();
@@ -143,7 +154,10 @@ export function registerIpc(getWin: () => BrowserWindow | null) {
     }, 16);
   });
 
-  ipcMain.on('pet:drag-end', stopDrag);
+  ipcMain.on('pet:drag-end', () => {
+    stopDrag();
+    wanderer.hold('drag', false);
+  });
 
   ipcMain.on('pet:show-menu', (e, items: unknown) => {
     const win = ownWin(e);
@@ -156,7 +170,8 @@ export function registerIpc(getWin: () => BrowserWindow | null) {
       { type: 'separator' },
       { label: '펫 끄기', click: () => app.quit() },
     ];
-    Menu.buildFromTemplate(template).popup({ window: win });
+    wanderer.hold('menu', true);
+    Menu.buildFromTemplate(template).popup({ window: win, callback: () => wanderer.hold('menu', false) });
   });
 
   ipcMain.handle('pet:load-layer', (e, candidates: unknown) => {

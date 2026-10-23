@@ -6,10 +6,12 @@ export function setupClickThrough({
   root,
   character,
   isDragging,
+  onHoverChange,
 }: {
   root: HTMLElement;
   character: Character;
   isDragging: () => boolean;
+  onHoverChange?: (hovering: boolean) => void;
 }) {
   let ignoring = true;
   let hideTimer: ReturnType<typeof setTimeout> | null = null;
@@ -38,6 +40,7 @@ export function setupClickThrough({
     if (ignoring === !on) return;
     ignoring = !on;
     window.petAPI.setIgnoreMouse(ignoring);
+    onHoverChange?.(on);
   }
 
   // forward: true 덕분에 클릭 통과 중에도 mousemove는 들어온다

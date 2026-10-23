@@ -15,7 +15,24 @@ const closeBtn = $('close-btn');
 
 const character = createCharacter(stage, { size: 150 });
 const drag = setupDrag(character.el);
-setupClickThrough({ root, character, isDragging: drag.isDragging });
+
+// 돌아다녀도 되는 상태 + 마우스가 안 올라가 있을 때만 걷기 (드래그·메뉴는 main이 따로 멈춤)
+let hovering = false;
+function syncWander() {
+  api.setWanderAllowed(STATES[store.getState().status].wander && !hovering);
+}
+
+setupClickThrough({
+  root,
+  character,
+  isDragging: drag.isDragging,
+  onHoverChange: (on) => {
+    hovering = on;
+    syncWander();
+  },
+});
+
+api.onWalk((info) => character.setActivity(info ? 'walk' : null, info?.dir));
 
 function buildMenu(status: StatusId): MenuItemSpec[] {
   return [
@@ -44,7 +61,10 @@ function renderTimer() {
 }
 
 store.subscribe((next, prev) => {
-  if (next.status !== prev.status) character.setStatus(next.status);
+  if (next.status !== prev.status) {
+    character.setStatus(next.status);
+    syncWander();
+  }
   renderTimer();
 });
 
@@ -58,4 +78,5 @@ closeBtn.addEventListener('click', () => api.quit());
 
 character.setStatus(store.getState().status);
 renderTimer();
+syncWander();
 setInterval(renderTimer, 500);
