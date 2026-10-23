@@ -5,13 +5,12 @@ import { formatTime } from './timer.js';
 import { createCharacter } from './character.js';
 import { setupDrag } from './drag.js';
 import { setupClickThrough } from './clickThrough.js';
+import { setupAutoSleep } from './autoSleep.js';
 
 const api = window.petAPI;
 const $ = (id: string) => document.getElementById(id)!;
-const root = $('pet');
 const stage = $('stage');
 const timerEl = $('timer');
-const closeBtn = $('close-btn');
 
 const character = createCharacter(stage, { size: 150 });
 const drag = setupDrag(character.el);
@@ -23,7 +22,6 @@ function syncWander() {
 }
 
 setupClickThrough({
-  root,
   character,
   isDragging: drag.isDragging,
   onHoverChange: (on) => {
@@ -33,10 +31,16 @@ setupClickThrough({
 });
 
 api.onWalk((info) => character.setActivity(info ? 'walk' : null, info?.dir));
+setupAutoSleep();
 
 function buildMenu(status: StatusId): MenuItemSpec[] {
   return [
-    { kind: 'item', id: 'study', label: status === 'rest' ? '공부 다시 시작' : '공부 시작', enabled: status !== 'study' },
+    {
+      kind: 'item',
+      id: 'study',
+      label: status === 'rest' || status === 'sleepy' ? '공부 다시 시작' : '공부 시작',
+      enabled: status !== 'study',
+    },
     { kind: 'item', id: 'rest', label: '휴식', enabled: status !== 'rest' && status !== 'idle' },
     { kind: 'item', id: 'idle', label: '공부 종료', enabled: status !== 'idle' },
     { kind: 'separator' },
@@ -74,7 +78,6 @@ character.el.addEventListener('contextmenu', (e) => {
 });
 
 api.onMenuAction((id) => store.setStatus(id));
-closeBtn.addEventListener('click', () => api.quit());
 
 character.setStatus(store.getState().status);
 renderTimer();

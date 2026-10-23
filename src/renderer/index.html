@@ -10,14 +10,8 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div id="pet" class="group/pet flex h-full w-full flex-col items-center justify-end gap-1.5 pb-2.5">
-    <div id="stage" class="relative">
-      <button
-        id="close-btn"
-        class="hit-ui pointer-events-none absolute -top-1 -right-1 z-10 grid size-[22px] cursor-pointer place-items-center rounded-full bg-zinc-800/85 text-[15px] leading-none text-white opacity-0 transition hover:bg-red-500 group-[.hovering]/pet:pointer-events-auto group-[.hovering]/pet:opacity-100"
-        title="펫 끄기"
-      >×</button>
-    </div>
+  <div id="pet" class="flex h-full w-full flex-col items-center justify-end gap-1.5 pb-2.5">
+    <div id="stage" class="relative"></div>
     <div
       id="timer"
       class="invisible pointer-events-none min-w-[58px] rounded-full bg-zinc-900/80 px-2.5 py-0.5 text-center text-xs text-white tabular-nums"

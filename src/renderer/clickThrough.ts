@@ -1,21 +1,17 @@
 import type { Character } from './character.js';
 
-const HIDE_DELAY = 500;
-
 export function setupClickThrough({
-  root,
   character,
   isDragging,
   onHoverChange,
 }: {
-  root: HTMLElement;
   character: Character;
   isDragging: () => boolean;
   onHoverChange?: (hovering: boolean) => void;
 }) {
   let ignoring = true;
-  let hideTimer: ReturnType<typeof setTimeout> | null = null;
 
+  // .hit-ui 클래스를 붙인 요소는 투명 영역이어도 클릭 가능 (나중에 버튼 UI 추가할 때)
   function isInteractive(x: number, y: number) {
     const el = document.elementFromPoint(x, y);
     if (!el) return false;
@@ -25,18 +21,6 @@ export function setupClickThrough({
   }
 
   function setInteractive(on: boolean) {
-    if (on) {
-      if (hideTimer) clearTimeout(hideTimer);
-      hideTimer = null;
-      root.classList.add('hovering');
-    } else if (!hideTimer && root.classList.contains('hovering')) {
-      // 캐릭터 → 닫기 버튼으로 가는 사이 버튼이 사라지지 않게 살짝 늦게 숨김
-      hideTimer = setTimeout(() => {
-        root.classList.remove('hovering');
-        hideTimer = null;
-      }, HIDE_DELAY);
-    }
-
     if (ignoring === !on) return;
     ignoring = !on;
     window.petAPI.setIgnoreMouse(ignoring);

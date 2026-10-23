@@ -9,7 +9,6 @@ const api: PetAPI = {
   dragEnd: () => ipcRenderer.send('pet:drag-end'),
   showMenu: (items) => ipcRenderer.send('pet:show-menu', items),
   loadLayer: (candidates) => ipcRenderer.invoke('pet:load-layer', candidates),
-  quit: () => ipcRenderer.send('pet:quit'),
   onMenuAction: (callback) => {
     const handler = (_event: Electron.IpcRendererEvent, id: string) => callback(id);
     ipcRenderer.on('pet:menu-action', handler);
@@ -20,6 +19,11 @@ const api: PetAPI = {
     const handler = (_event: Electron.IpcRendererEvent, info: WalkInfo | null) => callback(info);
     ipcRenderer.on('pet:walk', handler);
     return () => ipcRenderer.removeListener('pet:walk', handler);
+  },
+  onSystemIdle: (callback) => {
+    const handler = (_event: Electron.IpcRendererEvent, seconds: number) => callback(seconds);
+    ipcRenderer.on('pet:system-idle', handler);
+    return () => ipcRenderer.removeListener('pet:system-idle', handler);
   },
 };
 

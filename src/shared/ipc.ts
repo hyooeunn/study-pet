@@ -28,8 +28,8 @@ export interface PetAPI {
   dragEnd(): void;
   showMenu(items: MenuItemSpec[]): void;
   loadLayer(candidates: string[]): Promise<LayerData | null>;
-  quit(): void;
   onMenuAction(callback: (id: string) => void): () => void;
   setWanderAllowed(allowed: boolean): void;
   onWalk(callback: (info: WalkInfo | null) => void): () => void;
+  onSystemIdle(callback: (idleSeconds: number) => void): () => void;
 }

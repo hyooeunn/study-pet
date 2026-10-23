@@ -26,6 +26,14 @@ export function isStatus(id: string): id is StatusId {
   return Object.hasOwn(STATES, id);
 }
 
+// from 상태에서 afterSec초 동안 입력이 없으면 to 상태로, 다시 입력이 생기면 from으로
+export const AUTO_SLEEP: { from: StatusId; to: StatusId; afterSec: number; wakeWithinSec: number } = {
+  from: 'study',
+  to: 'sleepy',
+  afterSec: 10 * 60,
+  wakeWithinSec: 3,
+};
+
 // 활동 = 상태와 별개로 잠깐 하는 행동 (걷기, 나중에 기지개·하품 등)
 // 모션은 assets/motions/{id}/ 폴더 → 없으면 상태 이미지 + 아래 CSS 움직임
 export interface ActivityDef {

@@ -13,6 +13,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { LayerData, MenuItemSpec, MotionFrame } from '../shared/ipc.js';
 import { createWanderer } from './wander.js';
+import { startIdleWatch } from './idle.js';
 
 const ASSETS_DIR = path.join(app.getAppPath(), 'assets');
 const MASK_SIZE = 64;
@@ -123,6 +124,8 @@ export function registerIpc(getWin: () => BrowserWindow | null) {
     if (win && !win.isDestroyed()) win.webContents.send('pet:walk', info);
   });
 
+  startIdleWatch(getWin);
+
   ipcMain.on('pet:set-ignore-mouse', (e, ignore: unknown) => {
     ownWin(e)?.setIgnoreMouseEvents(!!ignore, { forward: true });
   });
@@ -182,9 +185,5 @@ export function registerIpc(getWin: () => BrowserWindow | null) {
       if (layer) return layer;
     }
     return null;
-  });
-
-  ipcMain.on('pet:quit', (e) => {
-    if (ownWin(e)) app.quit();
   });
 }
