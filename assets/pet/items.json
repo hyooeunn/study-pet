@@ -1,5 +1,5 @@
 {
-  "_note": "hairStyles = 고를 수 있는 머리 모양 (캐릭터 만들기에서 하나 선택), items = 항상 입는 아이템. 그리는 순서는 slot이 정하고, 같은 slot 안에서는 배열 순서. tint: hair 는 고른 머리색으로 칠함(원본은 갈색으로 그림), accent: accessory 는 채도 높은 부분(머리끈 등)을 악세사리 색으로 칠함. 머리 모양 추가 = 여기에 묶음 하나 + src/renderer/appearance.config.ts 의 HAIR_STYLES 에 이름 한 줄",
+  "_note": "hairStyles = 고를 수 있는 머리 모양 (캐릭터 만들기에서 하나 선택), items = 항상 입는 아이템. 그리는 순서는 slot이 정하고, 같은 slot 안에서는 배열 순서. tint: hair 는 고른 머리색으로 칠함(원본은 갈색으로 그림), accent: accessory 는 채도 높은 부분(머리끈 등)을 악세사리 색으로 칠함. 머리 모양 추가 = 여기에 묶음 하나 + src/renderer/appearance.config.ts 의 HAIR_STYLES 에 이름 한 줄. 어깨 아래로 내려오는 머리는 back(slot: hair_back, 몸·팔 뒤)과 front(slot: hair_front)로 나누고, back은 팔·몸 자리까지 머리색으로 꽉 채워야 팔이 움직여도 빈 곳이 안 보임",
   "hairStyles": {
     "ponytail": [
       {
@@ -16,7 +16,11 @@
         "slot": "hair_front",
         "attachTo": "head",
         "tint": "hair",
-        "sway": { "pivot": [1002, 633], "deg": 3, "lag": 0.1 }
+        "sway": {
+          "pivot": [1002, 633],
+          "deg": 3,
+          "lag": 0.1
+        }
       },
       {
         "id": "ponytail_tail",
@@ -25,13 +29,24 @@
         "attachTo": "head",
         "tint": "hair",
         "accent": "accessory",
-        "sway": { "pivot": [1035, 467], "deg": 5, "lag": 0.25 }
+        "sway": {
+          "pivot": [1035, 467],
+          "deg": 5,
+          "lag": 0.25
+        }
       }
     ],
     "long": [
       {
-        "id": "long_band",
-        "image": "items/hair/long/band.png",
+        "id": "long_back",
+        "image": "items/hair/long/back.png",
+        "slot": "hair_back",
+        "attachTo": "head",
+        "tint": "hair"
+      },
+      {
+        "id": "long_front",
+        "image": "items/hair/long/front.png",
         "slot": "hair_front",
         "attachTo": "head",
         "tint": "hair"
@@ -42,13 +57,24 @@
         "slot": "hair_front",
         "attachTo": "head",
         "tint": "hair",
-        "sway": { "pivot": [1000, 668], "deg": 2.5, "lag": 0.1 }
+        "sway": {
+          "pivot": [1000, 668],
+          "deg": 2.5,
+          "lag": 0.1
+        }
       }
     ],
     "long_open": [
       {
-        "id": "long_open",
-        "image": "items/hair/long/open.png",
+        "id": "long_open_back",
+        "image": "items/hair/long/open_back.png",
+        "slot": "hair_back",
+        "attachTo": "head",
+        "tint": "hair"
+      },
+      {
+        "id": "long_open_front",
+        "image": "items/hair/long/open_front.png",
         "slot": "hair_front",
         "attachTo": "head",
         "tint": "hair"
