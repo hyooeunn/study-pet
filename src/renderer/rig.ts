@@ -48,9 +48,10 @@ export interface RigModel {
   parts: Record<RigPartId, Sprite>;
   items: LoadedItem[];
   overlays: LoadedOverlay[];
+  frontLines: LoadedOverlay[];
 }
 
-type Pose = Record<RigPartId, DOMMatrix> & { legOrder: ['leg_l' | 'leg_r', 'leg_l' | 'leg_r']; uL: number };
+type Pose = Record<RigPartId, DOMMatrix> & { legOrder: ['leg_l' | 'leg_r', 'leg_l' | 'leg_r']; uL: number; dir: 1 | -1 };
 
 interface DrawnLayer {
   sprite: Sprite;
@@ -179,7 +180,50 @@ export async function loadRigModel(appearance: Appearance): Promise<RigModel | n
     )
   ).filter((o): o is LoadedOverlay => o !== null);
 
-  return { rig: data.rig, parts, items, overlays };
+  const frontLines = (
+    await Promise.all(
+      (data.rig.frontLines ?? []).map(async ({ part, box }) => {
+        const sprite = await lineSprite(`pet/${part}.png`, size, box);
+        return sprite ? { attachTo: part, sprite } : null;
+      })
+    )
+  ).filter((o): o is LoadedOverlay => o !== null);
+
+  return { rig: data.rig, parts, items, overlays, frontLines };
+}
+
+// 파츠에서 box 안의 어두운 선(크레용 외곽선)만 뽑은 그림. 머리카락 위에 다시 그려서 선이 또렷하게
+const lineCache = new Map<string, Promise<Sprite | null>>();
+function lineSprite(rel: string, canvasSize: number, box: [number, number, number, number]) {
+  const key = `${rel}|${box.join(',')}`;
+  let p = lineCache.get(key);
+  if (!p) {
+    p = (async () => {
+      const src = await getSource(rel, canvasSize, {});
+      if (!src) return null;
+      const { pixels } = src;
+      const out = new ImageData(pixels.width, pixels.height);
+      const s = pixels.data, d = out.data;
+      for (let py = 0; py < pixels.height; py++) {
+        const y = src.y + (py + 0.5) / STORE_SCALE;
+        if (y < box[1] || y >= box[3]) continue;
+        for (let px = 0; px < pixels.width; px++) {
+          const x = src.x + (px + 0.5) / STORE_SCALE;
+          if (x < box[0] || x >= box[2]) continue;
+          const i = (py * pixels.width + px) * 4;
+          const lum = 0.299 * s[i] + 0.587 * s[i + 1] + 0.114 * s[i + 2];
+          const w = Math.min(1, Math.max(0, (130 - lum) / 60)); // 어두울수록 진하게
+          if (w === 0 || s[i + 3] === 0) continue;
+          d[i] = s[i]; d[i + 1] = s[i + 1]; d[i + 2] = s[i + 2];
+          d[i + 3] = s[i + 3] * w;
+        }
+      }
+      const { pixels: _p, plain: _b, tint: _t, weights: _w, accent: _a, ...boxInfo } = src;
+      return { ...boxInfo, bitmap: await createImageBitmap(out) };
+    })();
+    lineCache.set(key, p);
+  }
+  return p;
 }
 
 // ---------- 포즈 계산 (rig.json 규칙 그대로, 회전 + = 시계방향) ----------
@@ -204,37 +248,42 @@ function idlePose(): Pose {
     head: id, face: id, torso: id, arm_l: id, arm_r: id, leg_l: id, leg_r: id,
     legOrder: ['leg_l', 'leg_r'],
     uL: 0,
+    dir: 1,
   };
 }
 
-// 오른쪽으로 걷는 k번째 프레임. 왼쪽은 화면에서 통째로 좌우 반전
-function walkPose(rig: RigData, k: number): Pose {
+// k번째 걷기 프레임. dir 1 = 오른쪽, -1 = 왼쪽
+// 왼쪽은 그림을 뒤집지 않고 움직임만 거울처럼 (기울기·얼굴 쏠림·발 내딛는 방향 반대, 왼/오른 팔다리 박자 교환)
+function walkPose(rig: RigData, k: number, dir: 1 | -1): Pose {
   const P = rig.params;
   const pv = rig.pivots;
   const uL = k / P.frames;
   const uR = (uL + 0.5) % 1;
+  // 왼쪽으로 걸을 땐 왼쪽·오른쪽 팔다리의 박자를 맞바꿈
+  const uLeft = dir > 0 ? uL : uR;
+  const uRight = dir > 0 ? uR : uL;
 
-  const roll = -P.rollDeg * Math.sin(TAU * uL);
+  const roll = -dir * P.rollDeg * Math.sin(TAU * uL);
   const bob = P.bobPx * Math.abs(Math.sin(TAU * uL));
-  const body = new DOMMatrix().translate(0, -bob).multiply(rotAbout(roll + P.leanDeg, pv.roll));
+  const body = new DOMMatrix().translate(0, -bob).multiply(rotAbout(roll + dir * P.leanDeg, pv.roll));
   const head = body.multiply(rotAbout(-P.headCounterRoll * roll, pv.neck));
 
-  const armL = P.armBaseDeg + P.armSwingDeg * Math.sin(TAU * uL);
-  const armR = P.armBaseDeg + P.armSwingDeg * Math.sin(TAU * uR);
+  const armL = P.armBaseDeg + P.armSwingDeg * Math.sin(TAU * uLeft);
+  const armR = P.armBaseDeg + P.armSwingDeg * Math.sin(TAU * uRight);
 
   const leg = (u: number, hip: Vec2) => {
     const f = foot(u, P.footTravelPx, P.footLiftPx);
     const sway = P.legSwayFollow * (body.transformPoint({ x: hip[0], y: hip[1] }).x - hip[0]);
-    const m = new DOMMatrix().translate(sway, -f.lift).multiply(rotAbout(-toDeg(f.x / P.legLenPx), hip));
+    const m = new DOMMatrix().translate(sway, -f.lift).multiply(rotAbout(-toDeg((dir * f.x) / P.legLenPx), hip));
     return { m, lift: f.lift };
   };
-  const legL = leg(uL, pv.hipL);
-  const legR = leg(uR, pv.hipR);
+  const legL = leg(uLeft, pv.hipL);
+  const legR = leg(uRight, pv.hipR);
 
   return {
     torso: body,
     head,
-    face: head.multiply(new DOMMatrix().translate(P.faceShiftPx, 0)),
+    face: head.multiply(new DOMMatrix().translate(dir * P.faceShiftPx, 0)),
     arm_l: body.multiply(rotAbout(armL, pv.shoulderL)),
     arm_r: body.multiply(rotAbout(-armR, pv.shoulderR)),
     leg_l: legL.m,
@@ -242,12 +291,13 @@ function walkPose(rig: RigData, k: number): Pose {
     // 든 발(lift가 큰 쪽)을 나중에 그려서 위에 오게
     legOrder: legL.lift > legR.lift ? ['leg_r', 'leg_l'] : ['leg_l', 'leg_r'],
     uL,
+    dir,
   };
 }
 
 // ---------- 그리기 ----------
 
-type DrawStep = { part: RigPartId } | { slot: ItemSlot } | { overlaysOn: RigPartId };
+type DrawStep = { part: RigPartId } | { slot: ItemSlot } | { overlaysOn: RigPartId } | { frontLines: true };
 
 function drawSteps(pose: Pose): DrawStep[] {
   return [
@@ -263,13 +313,14 @@ function drawSteps(pose: Pose): DrawStep[] {
     { overlaysOn: 'head' }, // 볼터치 자리
     { part: 'face' },
     { slot: 'hair_front' },
+    { frontLines: true }, // 머리카락에 덮인 턱선 등을 다시 또렷하게
   ];
 }
 
 function itemMatrix(item: LoadedItem, pose: Pose, walking: boolean) {
   const base = pose[item.attachTo];
   if (!item.sway || !walking) return base;
-  const angle = item.sway.deg * Math.sin(TAU * (pose.uL - (item.sway.lag ?? 0)));
+  const angle = pose.dir * item.sway.deg * Math.sin(TAU * (pose.uL - (item.sway.lag ?? 0)));
   return base.multiply(rotAbout(angle, item.sway.pivot));
 }
 
@@ -292,12 +343,13 @@ export function createRigView(model: RigModel, className: string) {
   };
 
   let walking = false;
+  let direction: 1 | -1 = 1;
   let frame = 0;
   let timer: ReturnType<typeof setInterval> | null = null;
   let drawn: DrawnLayer[] = [];
 
   function draw() {
-    const pose = walking ? walkPose(rig, frame) : idlePose();
+    const pose = walking ? walkPose(rig, frame, direction) : idlePose();
     const scale = canvas.width / view.size;
     const base = new DOMMatrix().scale(scale).translate(-view.x, -view.y);
 
@@ -315,6 +367,8 @@ export function createRigView(model: RigModel, className: string) {
     for (const step of drawSteps(pose)) {
       if ('part' in step) {
         paint(model.parts[step.part], pose[step.part]);
+      } else if ('frontLines' in step) {
+        for (const o of model.frontLines) paint(o.sprite, pose[o.attachTo]);
       } else if ('overlaysOn' in step) {
         for (const o of model.overlays) {
           if (o.attachTo === step.overlaysOn) paint(o.sprite, pose[o.attachTo]);
@@ -334,9 +388,10 @@ export function createRigView(model: RigModel, className: string) {
     draw();
   }
 
-  function setWalking(next: boolean) {
-    if (next === walking) return;
+  function setWalking(next: boolean, dir: 1 | -1 = 1) {
+    if (next === walking && dir === direction) return;
     walking = next;
+    direction = dir;
     frame = 0;
     if (timer) clearInterval(timer);
     timer = null;

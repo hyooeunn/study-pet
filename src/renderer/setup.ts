@@ -1,5 +1,13 @@
 import type { Appearance } from '../shared/ipc.js';
-import { ACCESSORY_COLORS, DEFAULT_APPEARANCE, HAIR_COLORS, HAIR_STYLES, NICKNAME_MAX, SKIN_COLORS } from './appearance.config.js';
+import {
+  ACCESSORY_COLORS,
+  DEFAULT_APPEARANCE,
+  HAIR_COLORS,
+  HAIR_STYLES,
+  NICKNAME_MAX,
+  SKIN_COLORS,
+  findHairStyle,
+} from './appearance.config.js';
 import { createCharacter } from './character.js';
 
 const api = window.petAPI;
@@ -105,35 +113,66 @@ const accessoryField = $('accessory-field');
 function syncAccessoryField() {
   const worn = [...(rig?.items ?? []), ...(rig?.hairStyles[appearance.hairStyle] ?? [])];
   const show = worn.some((item) => item.accent === 'accessory');
-  accessoryField.classList.toggle('hidden', !show);
-  accessoryField.classList.toggle('flex', show);
+  accessoryField.classList.toggle('invisible', !show);
 }
 buildPalette<string | null>($('accessory-colors'), 'accessory', ACCESSORY_COLORS, appearance.accessoryColor, (c) =>
   updateAppearance({ accessoryColor: c })
 );
 syncAccessoryField();
 
-// 머리 모양: 글자 버튼 (items.json에 실제로 있는 것만)
-const STYLE_CLASS =
+// 머리 모양: 글자 버튼. 앞머리를 고를 수 있는 모양이면 아래에 "있음 / 없음"이 나옴
+const CHIP_CLASS =
   'cursor-pointer rounded-full border-2 border-stone-200 bg-white px-3.5 py-1.5 text-sm text-stone-600 transition peer-checked:border-orange-300 peer-checked:bg-orange-50 peer-checked:font-semibold peer-checked:text-stone-800 peer-focus-visible:ring-4 peer-focus-visible:ring-orange-200';
-for (const style of HAIR_STYLES) {
-  if (rig && !rig.hairStyles[style.id]) continue;
+const SMALL_CHIP_CLASS =
+  'cursor-pointer rounded-full border-2 border-stone-200 bg-white px-3 py-1 text-xs text-stone-600 transition peer-checked:border-orange-300 peer-checked:bg-orange-50 peer-checked:font-semibold peer-checked:text-stone-800 peer-focus-visible:ring-4 peer-focus-visible:ring-orange-200';
+
+function makeChip(name: string, value: string, text: string, className: string) {
   const label = document.createElement('label');
-  label.innerHTML = `<input type="radio" name="hair-style" class="peer sr-only" /><span class="${STYLE_CLASS}"></span>`;
+  label.innerHTML = `<input type="radio" class="peer sr-only" /><span class="${className}"></span>`;
   const radio = label.querySelector('input')!;
-  radio.value = style.id;
-  radio.checked = style.id === appearance.hairStyle;
-  label.lastElementChild!.textContent = style.label;
+  radio.name = name;
+  radio.value = value;
+  label.lastElementChild!.textContent = text;
+  return { label, radio };
+}
+
+const initial = findHairStyle(appearance.hairStyle);
+let styleChoice = initial.option;
+let bangsOn = initial.bangs;
+const bangsRow = $('bangs-row');
+
+function applyHairStyle() {
+  const hairStyle = styleChoice.bangs ? (bangsOn ? styleChoice.bangs.on : styleChoice.bangs.off) : styleChoice.id;
+  bangsRow.classList.toggle('invisible', !styleChoice.bangs);
+  updateAppearance({ hairStyle });
+  syncAccessoryField();
+}
+
+// items.json에 실제로 있는 머리 모양만
+const available = (id: string) => !rig || !!rig.hairStyles[id];
+for (const option of HAIR_STYLES) {
+  if (!available(option.bangs?.on ?? option.id)) continue;
+  const { label, radio } = makeChip('hair-style', option.id, option.label, CHIP_CLASS);
   radio.addEventListener('change', () => {
-    updateAppearance({ hairStyle: style.id });
-    syncAccessoryField();
+    styleChoice = option;
+    applyHairStyle();
   });
   $('hair-styles').appendChild(label);
 }
+for (const [value, text] of [['on', '있음'], ['off', '없음']] as const) {
+  const { label, radio } = makeChip('bangs', value, text, SMALL_CHIP_CLASS);
+  radio.addEventListener('change', () => {
+    bangsOn = value === 'on';
+    applyHairStyle();
+  });
+  bangsRow.appendChild(label);
+}
+bangsRow.classList.toggle('invisible', !styleChoice.bangs);
 
 // 브라우저가 이전 선택 상태를 복원해도, 화면 표시를 실제 값에 맞게 다시 맞춤
 const selected: Record<string, string> = {
-  'hair-style': appearance.hairStyle,
+  'hair-style': styleChoice.id,
+  bangs: bangsOn ? 'on' : 'off',
   hair: appearance.hairColor,
   skin: appearance.skinColor,
   accessory: appearance.accessoryColor ?? '',
@@ -150,6 +189,20 @@ function syncName() {
 nicknameInput.addEventListener('input', syncName);
 syncName();
 nicknameInput.focus();
+
+// 창 높이를 내용에 맞춤: 잠깐 높이 고정을 풀고 오른쪽 칸의 원래 높이를 잼
+function fitWindow() {
+  const main = document.querySelector('main')!;
+  main.classList.remove('h-full');
+  form.classList.remove('overflow-y-auto');
+  const needed = form.getBoundingClientRect().height;
+  form.classList.add('overflow-y-auto');
+  main.classList.add('h-full');
+  // 지금 보이는 높이도 같이 보내서, main이 화면 확대 비율을 계산하게 함
+  api.fitSetupWindow(needed + 16, window.innerHeight); // +16: 스크롤바·반올림 오차 여유
+}
+await document.fonts.ready;
+fitWindow();
 
 form.addEventListener('submit', async (e) => {
   e.preventDefault();

@@ -1,11 +1,27 @@
 import type { Appearance } from '../shared/ipc.js';
 
-// 머리 모양. id는 assets/pet/items.json 의 hairStyles 이름과 같아야 함
-export const HAIR_STYLES = [
-  { id: 'ponytail', label: '포니테일' },
-  { id: 'long', label: '장발' },
-  { id: 'long_open', label: '장발 · 앞머리 없음' },
-] as const;
+// 머리 모양 버튼. id / bangs.on / bangs.off 는 assets/pet/items.json 의 hairStyles 이름과 같아야 함
+// bangs가 있으면 그 모양을 눌렀을 때 "앞머리 있음 / 없음"을 한 번 더 고름
+export interface HairStyleOption {
+  id: string;
+  label: string;
+  bangs?: { on: string; off: string };
+}
+
+export const HAIR_STYLES: readonly HairStyleOption[] = [
+  { id: 'ponytail', label: '중단발 꽁지' },
+  { id: 'long', label: '장발', bangs: { on: 'long', off: 'long_open' } },
+];
+
+// 저장된 hairStyle(예: long_open) → 어느 버튼 + 앞머리 여부
+export function findHairStyle(hairStyle: string) {
+  for (const option of HAIR_STYLES) {
+    if (option.bangs?.on === hairStyle) return { option, bangs: true };
+    if (option.bangs?.off === hairStyle) return { option, bangs: false };
+    if (!option.bangs && option.id === hairStyle) return { option, bangs: true };
+  }
+  return { option: HAIR_STYLES[0], bangs: true };
+}
 
 // 팔레트 첫 번째 = 원본 그림의 색 (아무것도 안 바뀜). 색 추가 = 여기에 한 줄
 export const HAIR_COLORS = [

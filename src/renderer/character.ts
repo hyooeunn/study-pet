@@ -78,7 +78,7 @@ export function createCharacter(
   let currentSize = size;
   let status = '';
   let activity: ActivityId | null = null;
-  let facingLeft = false;
+  let walkDir: 1 | -1 = 1;
   let layers: LoadedLayer[] = [];
   let frameIndex: number[] = [];
   let timers: ReturnType<typeof setInterval>[] = [];
@@ -163,7 +163,7 @@ export function createCharacter(
     mode = 'rig';
     layers = [];
     const walking = activity === 'walk';
-    view.setWalking(walking);
+    view.setWalking(walking, walkDir);
     if (view.canvas.parentElement !== sprite) sprite.replaceChildren(view.canvas);
     applyMotion(!walking);
   }
@@ -211,11 +211,13 @@ export function createCharacter(
     return render();
   }
 
-  // 걷기 모션은 오른쪽을 보는 그림 기준. 왼쪽으로 갈 때 좌우 반전
+  // 걷는 방향은 그림을 뒤집지 않고 움직임으로만 표현 (파츠 조립 캐릭터)
   function setActivity(next: ActivityId | null, dir: 1 | -1 = 1) {
-    facingLeft = next !== null && dir < 0;
-    flip.classList.toggle('-scale-x-100', facingLeft);
-    if (next === activity) return;
+    walkDir = dir;
+    if (next === activity) {
+      if (mode === 'rig' && next === 'walk') rigView?.setWalking(true, walkDir);
+      return;
+    }
     activity = next;
     return render();
   }
@@ -229,10 +231,9 @@ export function createCharacter(
     const target = mode === 'rig' ? sprite.querySelector('canvas') : sprite;
     if (!target) return false;
     const r = target.getBoundingClientRect();
-    let u = (x - r.left) / r.width;
+    const u = (x - r.left) / r.width;
     const v = (y - r.top) / r.height;
     if (u < 0 || u >= 1 || v < 0 || v >= 1) return false;
-    if (facingLeft) u = 1 - u;
 
     if (mode === 'rig') return !!rigView?.hitTest(u, v);
 

@@ -221,6 +221,20 @@ export function registerIpc({ getPet: getWin, getSetup, openSetup, onProfileSave
 
   ipcMain.handle('pet:load-rig', (e) => (fromOurs(e) ? readRig() : null));
 
+  // 캐릭터 만들기 창: 글꼴·화면 배율이 달라도 안 잘리게 내용 높이에 맞춤 (화면보다 크면 화면 높이까지)
+  ipcMain.on('setup:fit', (e, neededCss: unknown, viewportCss: unknown) => {
+    const win = getSetup();
+    if (!win || !isLive(win, e) || typeof neededCss !== 'number' || typeof viewportCss !== 'number' || viewportCss <= 0) return;
+    // CSS 픽셀 → 창 크기 단위 (화면 확대를 쓰면 1이 아님)
+    const scale = win.getContentSize()[1] / viewportCss;
+    const area = screen.getDisplayMatching(win.getBounds()).workArea;
+    const frame = win.getSize()[1] - win.getContentSize()[1];
+    const height = Math.round(Math.min(Math.max(Math.ceil(neededCss * scale), 400), area.height - frame - 24));
+    win.setContentSize(win.getContentSize()[0], height);
+    win.center();
+    if (!win.isVisible()) win.show();
+  });
+
   ipcMain.handle('profile:get', (e) => (fromOurs(e) ? loadProfile() : null));
 
   ipcMain.handle('profile:save', (e, input: unknown) => {

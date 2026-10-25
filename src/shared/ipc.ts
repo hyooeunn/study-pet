@@ -56,6 +56,8 @@ export interface RigData {
     legSwayFollow: number;
   };
   crop: { x: number; y: number; size: number };
+  // 머리카락보다 위에 다시 그릴 테두리 선 (예: 턱선이 머리카락에 덮여 흐려지지 않게)
+  frontLines?: { part: RigPartId; box: [number, number, number, number] }[];
 }
 
 export interface ItemDef {
@@ -89,6 +91,7 @@ export interface PetAPI {
   getProfile(): Promise<Profile | null>;
   saveProfile(profile: Profile): Promise<boolean>;
   onProfileChanged(callback: (profile: Profile) => void): () => void;
+  fitSetupWindow(neededCss: number, viewportCss: number): void; // 캐릭터 만들기 창 높이를 내용에 맞춤
   onMenuAction(callback: (id: string) => void): () => void;
   setWanderAllowed(allowed: boolean): void;
   onWalk(callback: (info: WalkInfo | null) => void): () => void;

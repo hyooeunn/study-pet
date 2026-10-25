@@ -12,6 +12,7 @@ const api: PetAPI = {
   loadRig: () => ipcRenderer.invoke('pet:load-rig'),
   getProfile: () => ipcRenderer.invoke('profile:get'),
   saveProfile: (profile) => ipcRenderer.invoke('profile:save', profile),
+  fitSetupWindow: (neededCss, viewportCss) => ipcRenderer.send('setup:fit', neededCss, viewportCss),
   onProfileChanged: (callback) => {
     const handler = (_event: Electron.IpcRendererEvent, profile: Profile) => callback(profile);
     ipcRenderer.on('profile:changed', handler);

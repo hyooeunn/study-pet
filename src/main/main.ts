@@ -7,7 +7,7 @@ import { registerIpc, stopDrag } from './ipc.js';
 import { loadProfile } from './profile.js';
 
 const PET_SIZE = { width: 220, height: 240 };
-const SETUP_SIZE = { width: 620, height: 610 };
+const SETUP_SIZE = { width: 680, height: 600 }; // 높이는 화면이 내용에 맞춰 다시 정함
 const SCREEN_MARGIN = 12;
 const isDev = process.argv.includes('--dev');
 const openDevTools = process.argv.includes('--devtools');
@@ -112,8 +112,11 @@ function openSetupWindow() {
   harden(w);
   w.setMenuBarVisibility(false);
   w.loadFile(path.join(__dirname, '../renderer/setup.html'));
+  // 화면이 크기를 맞춘 뒤(setup:fit) 보여 줌. 혹시 신호가 안 오면 잠시 뒤 그냥 보여 줌
   w.once('ready-to-show', () => {
-    w.show();
+    setTimeout(() => {
+      if (!w.isDestroyed() && !w.isVisible()) w.show();
+    }, 2000);
     if (openDevTools) w.webContents.openDevTools({ mode: 'detach' });
   });
   w.on('closed', () => {
