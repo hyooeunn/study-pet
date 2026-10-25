@@ -34,6 +34,8 @@ export function sanitizeProfile(input: unknown): Profile | null {
       hairColor: toHex(LEGACY_HAIR[hair as string] ?? hair, DEFAULT_HAIR),
       // 예전 프로필(피부색 없음)은 기본 피부색으로
       skinColor: toHex(skin, DEFAULT_SKIN),
+      // null = 그린 색 그대로
+      accessoryColor: toHex(p?.appearance?.accessoryColor, '') || null,
     },
   };
 }

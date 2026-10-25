@@ -22,6 +22,7 @@ export type MenuItemSpec =
 export interface Appearance {
   hairColor: string; // '#rrggbb'. items.json에서 tint: 'hair'인 그림을 이 색으로 칠함
   skinColor: string; // '#rrggbb'. 파츠의 피부 픽셀을 이 색으로 바꿈
+  accessoryColor: string | null; // '#rrggbb' 또는 null(그린 색 그대로). 머리끈 같은 악세사리 색
 }
 
 export interface Profile {
@@ -62,6 +63,7 @@ export interface ItemDef {
   slot: ItemSlot;
   attachTo: RigPartId;
   tint?: 'hair'; // 내 캐릭터의 머리색으로 칠함 (원본은 갈색으로 그림)
+  accent?: 'accessory'; // 그림 속 채도 높은 부분(머리끈·리본 등)을 악세사리 색으로 칠함
   sway?: { pivot: Vec2; deg: number; lag?: number }; // 걸을 때 흔들림 (포니테일 등)
 }
 

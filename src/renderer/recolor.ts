@@ -74,16 +74,66 @@ function recolorHair(d: Uint8ClampedArray, weights: Float32Array, target: RGB) {
   }
 }
 
+// ---------- 악세사리 (머리끈처럼 채도 높은 부분) ----------
+
+export interface AccentInfo {
+  weights: Float32Array; // 0~1, 채도가 높을수록 1
+  base: RGB;             // 그림에서 찾은 원래 색 (가장 확실한 픽셀들의 중간값)
+}
+
+export function accentInfo(image: ImageData): AccentInfo | null {
+  const d = image.data;
+  const w = new Float32Array(d.length / 4);
+  const sure: RGB[] = [];
+  for (let i = 0, p = 0; p < w.length; i += 4, p++) {
+    if (d[i + 3] === 0) continue;
+    const r = d[i], g = d[i + 1], b = d[i + 2];
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    if (max === 0) continue;
+    // 채도 0.25~0.4에서 서서히 + 너무 어두운 픽셀(갈색 머리, 외곽선)은 제외
+    w[p] = clamp01(((max - min) / max - 0.25) / 0.15) * clamp01((max - 95) / 30);
+    if (w[p] > 0.9 && d[i + 3] > 200) sure.push([r, g, b]);
+  }
+  if (sure.length === 0) return null;
+  const mid = (c: number) => sure.map((s) => s[c]).sort((a, b) => a - b)[sure.length >> 1];
+  return { weights: w, base: [mid(0), mid(1), mid(2)] };
+}
+
+// 원래 색보다 밝으면 밝게, 어두우면(외곽선 쪽) 어둡게 → 새 색에 그 밝기 비율을 곱함
+function recolorAccent(src: Uint8ClampedArray, d: Uint8ClampedArray, info: AccentInfo, target: RGB) {
+  const baseLum = lum(...info.base);
+  for (let p = 0, i = 0; p < info.weights.length; p++, i += 4) {
+    const w = info.weights[p];
+    if (w === 0) continue;
+    const k = lum(src[i], src[i + 1], src[i + 2]) / baseLum;
+    for (let c = 0; c < 3; c++) d[i + c] += (Math.min(255, target[c] * k) - d[i + c]) * w;
+  }
+}
+
 // ---------- 공용 ----------
 
 export function tintWeights(tint: Tint, image: ImageData) {
   return tint === 'skin' ? skinWeights(image) : hairWeights(image);
 }
 
-export function recolor(tint: Tint, image: ImageData, weights: Float32Array, color: string): ImageData {
+export interface PaintPlan {
+  tint: Tint | null;
+  weights: Float32Array | null;
+  accent: AccentInfo | null;
+}
+
+// 바꿀 게 없으면 null (원본 그림 그대로 쓰면 됨)
+export function paint(image: ImageData, plan: PaintPlan, color?: string, accentColor?: string | null): ImageData | null {
+  const doMain = !!(plan.tint && plan.weights && color && color !== BASE_COLORS[plan.tint]);
+  const doAccent = !!(plan.accent && accentColor);
+  if (!doMain && !doAccent) return null;
+
   const out = new ImageData(new Uint8ClampedArray(image.data), image.width, image.height);
-  const target = hexToRgb(color);
-  if (tint === 'skin') recolorSkin(image.data, out.data, weights, target);
-  else recolorHair(out.data, weights, target);
+  if (doMain) {
+    const target = hexToRgb(color!);
+    if (plan.tint === 'skin') recolorSkin(image.data, out.data, plan.weights!, target);
+    else recolorHair(out.data, plan.weights!, target);
+  }
+  if (doAccent) recolorAccent(image.data, out.data, plan.accent!, hexToRgb(accentColor!));
   return out;
 }

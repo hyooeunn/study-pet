@@ -1,5 +1,5 @@
 import type { Appearance, ItemDef, ItemSlot, PetRig, RigData, RigPartId, Vec2 } from '../shared/ipc.js';
-import { BASE_COLORS, recolor, tintWeights, type Tint } from './recolor.js';
+import { accentInfo, paint, tintWeights, type PaintPlan, type Tint } from './recolor.js';
 
 const PARTS: RigPartId[] = ['head', 'face', 'torso', 'arm_l', 'arm_r', 'leg_l', 'leg_r'];
 // 피부색을 바꿀 파츠 (face는 눈·입만 있어서 제외)
@@ -22,11 +22,16 @@ interface Sprite {
 }
 
 // 파일당 한 번만 만드는 원본 데이터 (줄인 픽셀 + 색 바꾸기용 가중치)
-interface SpriteSource extends Omit<Sprite, 'bitmap'> {
+interface SpriteSource extends Omit<Sprite, 'bitmap'>, PaintPlan {
   pixels: ImageData;
-  tint: Tint | null;
-  weights: Float32Array | null;
   plain: ImageBitmap;
+}
+
+interface SpriteOptions {
+  tint?: Tint;                 // 주 색 바꾸기 (피부 / 머리)
+  color?: string;
+  accent?: boolean;            // 채도 높은 부분(머리끈 등)을 악세사리 색으로
+  accentColor?: string | null; // null = 원래 색
 }
 
 interface LoadedItem extends ItemDef {
@@ -57,10 +62,10 @@ function assetUrl(p: string) {
 }
 
 const sourceCache = new Map<string, Promise<SpriteSource | null>>();
-const tintCache = new Map<string, { color: string; bitmap: ImageBitmap }>();
+const tintCache = new Map<string, { key: string; bitmap: ImageBitmap }>();
 
 // 마스크(64x64)로 그림이 있는 영역만 잘라서, 줄인 픽셀로 보관
-async function loadSource(rel: string, canvasSize: number, tint: Tint | null): Promise<SpriteSource | null> {
+async function loadSource(rel: string, canvasSize: number, opts: SpriteOptions): Promise<SpriteSource | null> {
   const layer = await window.petAPI.loadLayer([rel]).catch(() => null);
   if (!layer) return null;
   const { mask } = layer.frames[0];
@@ -101,35 +106,37 @@ async function loadSource(rel: string, canvasSize: number, tint: Tint | null): P
   return {
     x, y, w, h, mask, maskSize: n,
     pixels,
-    tint,
-    weights: tint ? tintWeights(tint, pixels) : null,
+    tint: opts.tint ?? null,
+    weights: opts.tint ? tintWeights(opts.tint, pixels) : null,
+    accent: opts.accent ? accentInfo(pixels) : null,
     plain: await createImageBitmap(pixels),
   };
 }
 
-function getSource(rel: string, canvasSize: number, tint: Tint | null) {
+function getSource(rel: string, canvasSize: number, opts: SpriteOptions) {
   let p = sourceCache.get(rel);
   if (!p) {
-    p = loadSource(rel, canvasSize, tint);
+    p = loadSource(rel, canvasSize, opts);
     sourceCache.set(rel, p);
   }
   return p;
 }
 
-// 색이 바뀔 때만 다시 계산 (같은 색이면 캐시, 원본 색이면 그림 그대로)
-async function toSprite(rel: string, src: SpriteSource, color?: string): Promise<Sprite> {
-  const { pixels, tint, weights, plain, ...box } = src;
-  if (!tint || !weights || !color || color === BASE_COLORS[tint]) return { ...box, bitmap: plain };
+// 색이 바뀔 때만 다시 계산 (같은 색 조합이면 캐시, 바꿀 게 없으면 원본 그대로)
+async function toSprite(rel: string, src: SpriteSource, opts: SpriteOptions): Promise<Sprite> {
+  const { pixels, tint, weights, accent, plain, ...box } = src;
+  const key = `${opts.color ?? ''}|${opts.accentColor ?? ''}`;
   const hit = tintCache.get(rel);
-  if (hit?.color === color) return { ...box, bitmap: hit.bitmap };
-  const bitmap = await createImageBitmap(recolor(tint, pixels, weights, color));
-  tintCache.set(rel, { color, bitmap });
+  if (hit?.key === key) return { ...box, bitmap: hit.bitmap };
+  const painted = paint(pixels, { tint, weights, accent }, opts.color, opts.accentColor);
+  const bitmap = painted ? await createImageBitmap(painted) : plain;
+  tintCache.set(rel, { key, bitmap });
   return { ...box, bitmap };
 }
 
-async function loadSprite(rel: string, canvasSize: number, tint: Tint | null = null, color?: string) {
-  const src = await getSource(rel, canvasSize, tint);
-  return src ? toSprite(rel, src, color) : null;
+async function loadSprite(rel: string, canvasSize: number, opts: SpriteOptions = {}) {
+  const src = await getSource(rel, canvasSize, opts);
+  return src ? toSprite(rel, src, opts) : null;
 }
 
 export async function loadRigModel(appearance: Appearance): Promise<RigModel | null> {
@@ -139,7 +146,7 @@ export async function loadRigModel(appearance: Appearance): Promise<RigModel | n
 
   const sprites = await Promise.all(
     PARTS.map((id) =>
-      SKIN_PARTS.has(id) ? loadSprite(`pet/${id}.png`, size, 'skin', appearance.skinColor) : loadSprite(`pet/${id}.png`, size)
+      loadSprite(`pet/${id}.png`, size, SKIN_PARTS.has(id) ? { tint: 'skin', color: appearance.skinColor } : {})
     )
   );
   if (sprites.some((s) => !s)) return null;
@@ -148,8 +155,12 @@ export async function loadRigModel(appearance: Appearance): Promise<RigModel | n
   const items = (
     await Promise.all(
       data.items.map(async (item) => {
-        const color = item.tint === 'hair' ? appearance.hairColor : undefined;
-        const sprite = await loadSprite(`pet/${item.image}`, size, item.tint ?? null, color);
+        const sprite = await loadSprite(`pet/${item.image}`, size, {
+          tint: item.tint,
+          color: item.tint === 'hair' ? appearance.hairColor : undefined,
+          accent: item.accent === 'accessory',
+          accentColor: appearance.accessoryColor,
+        });
         return sprite && PARTS.includes(item.attachTo) ? { ...item, sprite } : null;
       })
     )

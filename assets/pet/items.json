@@ -1,12 +1,13 @@
 {
-  "_note": "착용 아이템 목록. 그리는 순서는 slot이 정하고, 같은 slot 안에서는 이 배열 순서. tint: hair 인 그림은 캐릭터 만들기에서 고른 머리색으로 자동으로 칠해짐 (원본은 갈색으로 그림, 머리끈처럼 채도 높은 색은 그대로). 흔들림 없이 쓰려면 아래 세 개 대신 ponytail/full.png 한 줄만",
+  "_note": "착용 아이템 목록. 그리는 순서는 slot이 정하고, 같은 slot 안에서는 이 배열 순서. tint: hair 인 그림은 캐릭터 만들기에서 고른 머리색으로 자동으로 칠해짐 (원본은 갈색으로 그림, 머리끈처럼 채도 높은 부분은 머리색에서 빠짐). 흔들림 없이 쓰려면 아래 세 개 대신 ponytail/full.png 한 줄만. accent: accessory 인 그림은 채도 높은 부분(머리끈 등)이 고른 악세사리 색으로 바뀜",
   "items": [
     {
       "id": "ponytail_band",
       "image": "items/hair/ponytail/band.png",
       "slot": "hair_front",
       "attachTo": "head",
-      "tint": "hair"
+      "tint": "hair",
+      "accent": "accessory"
     },
     {
       "id": "ponytail_bangs",
@@ -14,7 +15,11 @@
       "slot": "hair_front",
       "attachTo": "head",
       "tint": "hair",
-      "sway": { "pivot": [1002, 633], "deg": 3, "lag": 0.1 }
+      "sway": {
+        "pivot": [1002, 633],
+        "deg": 3,
+        "lag": 0.1
+      }
     },
     {
       "id": "ponytail_tail",
@@ -22,7 +27,12 @@
       "slot": "hair_front",
       "attachTo": "head",
       "tint": "hair",
-      "sway": { "pivot": [1035, 467], "deg": 5, "lag": 0.25 }
+      "sway": {
+        "pivot": [1035, 467],
+        "deg": 5,
+        "lag": 0.25
+      },
+      "accent": "accessory"
     }
   ]
 }

@@ -7,7 +7,7 @@ import { registerIpc, stopDrag } from './ipc.js';
 import { loadProfile } from './profile.js';
 
 const PET_SIZE = { width: 220, height: 240 };
-const SETUP_SIZE = { width: 620, height: 460 };
+const SETUP_SIZE = { width: 620, height: 540 };
 const SCREEN_MARGIN = 12;
 const isDev = process.argv.includes('--dev');
 const openDevTools = process.argv.includes('--devtools');

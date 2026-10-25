@@ -17,6 +17,20 @@ export const SKIN_COLORS = [
   { color: '#8a5a40', label: '진한 갈색' },
 ] as const;
 
-export const DEFAULT_APPEARANCE: Appearance = { hairColor: HAIR_COLORS[0].color, skinColor: SKIN_COLORS[0].color };
+// 악세사리(머리끈 등) 색. color: null = 그린 색 그대로
+export const ACCESSORY_COLORS = [
+  { color: null, label: '원래 색' },
+  { color: '#e5484d', label: '빨강' },
+  { color: '#ffd84d', label: '노랑' },
+  { color: '#6cc551', label: '초록' },
+  { color: '#5ab2ff', label: '하늘' },
+  { color: '#ff8fc0', label: '분홍' },
+] as const;
+
+export const DEFAULT_APPEARANCE: Appearance = {
+  hairColor: HAIR_COLORS[0].color,
+  skinColor: SKIN_COLORS[0].color,
+  accessoryColor: null,
+};
 
 export const NICKNAME_MAX = 12;

@@ -1,5 +1,5 @@
 import type { Appearance } from '../shared/ipc.js';
-import { DEFAULT_APPEARANCE, HAIR_COLORS, NICKNAME_MAX, SKIN_COLORS } from './appearance.config.js';
+import { ACCESSORY_COLORS, DEFAULT_APPEARANCE, HAIR_COLORS, NICKNAME_MAX, SKIN_COLORS } from './appearance.config.js';
 import { createCharacter } from './character.js';
 
 const api = window.petAPI;
@@ -41,21 +41,22 @@ function updateAppearance(patch: Partial<Appearance>) {
 
 const SWATCH_CLASS =
   'block size-8 rounded-full border-2 border-stone-300 transition peer-checked:ring-4 peer-checked:ring-orange-300 peer-checked:ring-offset-2 peer-focus-visible:ring-4 peer-focus-visible:ring-orange-200';
+const ORIGINAL_CLASS = 'grid place-items-center bg-white text-[10px] leading-none text-stone-500';
 const CUSTOM_CLASS =
   'size-8 cursor-pointer rounded-full border-0 bg-transparent p-0 ring-orange-300 ring-offset-2 [&.selected]:ring-4 [&::-webkit-color-swatch]:rounded-full [&::-webkit-color-swatch]:border-2 [&::-webkit-color-swatch]:border-dashed [&::-webkit-color-swatch]:border-stone-400 [&::-webkit-color-swatch-wrapper]:p-0';
 
-// 팔레트 동그라미들 + 맨 끝 "직접 고르기"(color input)
-function buildPalette(
+// 팔레트 동그라미들 + 맨 끝 "직접 고르기"(color input). color: null 칸은 "원래 색"
+function buildPalette<C extends string | null>(
   container: HTMLElement,
   name: string,
-  presets: readonly { color: string; label: string }[],
-  current: string,
-  onChange: (color: string) => void
+  presets: readonly { color: C; label: string }[],
+  current: C,
+  onChange: (color: C) => void
 ) {
   const custom = document.createElement('input');
   custom.type = 'color';
   custom.className = CUSTOM_CLASS;
-  custom.value = current;
+  custom.value = current ?? '#ffd84d';
   custom.classList.toggle('selected', !presets.some((p) => p.color === current));
 
   for (const preset of presets) {
@@ -65,11 +66,17 @@ function buildPalette(
     label.innerHTML = `<input type="radio" class="peer sr-only" /><span class="${SWATCH_CLASS}"></span>`;
     const radio = label.querySelector('input')!;
     radio.name = name;
-    radio.value = preset.color;
+    radio.value = preset.color ?? '';
     radio.checked = preset.color === current;
-    (label.lastElementChild as HTMLElement).style.backgroundColor = preset.color;
+    const swatch = label.lastElementChild as HTMLElement;
+    if (preset.color) {
+      swatch.style.backgroundColor = preset.color;
+    } else {
+      swatch.classList.add(...ORIGINAL_CLASS.split(' '));
+      swatch.textContent = '원래';
+    }
     radio.addEventListener('change', () => {
-      custom.value = preset.color;
+      if (preset.color) custom.value = preset.color;
       custom.classList.remove('selected');
       onChange(preset.color);
     });
@@ -85,12 +92,21 @@ function buildPalette(
   custom.addEventListener('input', () => {
     container.querySelectorAll<HTMLInputElement>(`input[name=${name}]`).forEach((r) => (r.checked = false));
     custom.classList.add('selected');
-    onChange(custom.value);
+    onChange(custom.value as C);
   });
 }
 
 buildPalette($('hair-colors'), 'hair', HAIR_COLORS, appearance.hairColor, (c) => updateAppearance({ hairColor: c }));
 buildPalette($('skin-colors'), 'skin', SKIN_COLORS, appearance.skinColor, (c) => updateAppearance({ skinColor: c }));
+
+// 악세사리 색은 착용한 아이템에 악세사리가 있을 때만
+const rig = await api.loadRig();
+if (rig?.items.some((item) => item.accent === 'accessory')) {
+  $('accessory-field').classList.replace('hidden', 'flex');
+  buildPalette<string | null>($('accessory-colors'), 'accessory', ACCESSORY_COLORS, appearance.accessoryColor, (c) =>
+    updateAppearance({ accessoryColor: c })
+  );
+}
 
 function syncName() {
   const name = nicknameInput.value.trim();
