@@ -1,4 +1,5 @@
-import type { LayerData } from '../shared/ipc.js';
+import type { Appearance, LayerData } from '../shared/ipc.js';
+import { DEFAULT_APPEARANCE } from './appearance.config.js';
 import { ACTIVITIES, STATES, isStatus, type ActivityId } from './states.config.js';
 import { createRigView, loadRigModel, type RigView } from './rig.js';
 
@@ -55,8 +56,15 @@ async function loadFrames(layer: LayerData): Promise<LoadedLayer | null> {
   return imgs.every((i): i is HTMLImageElement => i !== null) ? { ...layer, imgs } : null;
 }
 
-// 친구 캐릭터도 이 함수로 만든다: createCharacter(box, { size: 110 })
-export function createCharacter(container: HTMLElement, { size = 150 } = {}) {
+// 친구 캐릭터도 이 함수로 만든다: createCharacter(box, { size: 110, appearance })
+export function createCharacter(
+  container: HTMLElement,
+  {
+    size = 150,
+    appearance: initialAppearance = DEFAULT_APPEARANCE,
+    still = false, // true면 상태별 CSS 움직임(숨쉬기 등)을 끔
+  }: { size?: number; appearance?: Appearance; still?: boolean } = {}
+) {
   const el = document.createElement('div');
   el.className = 'character group/char relative cursor-grab [&.dragging]:cursor-grabbing';
   const flip = document.createElement('div');
@@ -77,13 +85,22 @@ export function createCharacter(container: HTMLElement, { size = 150 } = {}) {
   let mode: 'images' | 'rig' | 'placeholder' = 'images';
   let renderToken = 0;
 
+  let appearance = initialAppearance;
   let rigView: RigView | null = null;
-  const rigReady: Promise<RigView | null> = loadRigModel().then((model) => {
-    if (!model) return null;
-    rigView = createRigView(model, CANVAS_CLASS);
-    rigView.setSize(currentSize);
-    return rigView;
-  });
+  let rigToken = 0;
+
+  function loadRig(): Promise<RigView | null> {
+    const token = ++rigToken;
+    return loadRigModel(appearance).then((model) => {
+      // 머리색을 연달아 바꿨을 때 늦게 끝난 옛 결과는 버림
+      if (!model || token !== rigToken) return null;
+      rigView?.setWalking(false);
+      rigView = createRigView(model, CANVAS_CLASS);
+      rigView.setSize(currentSize);
+      return rigView;
+    });
+  }
+  let rigReady = loadRig();
 
   function setSize(px: number) {
     currentSize = px;
@@ -95,7 +112,7 @@ export function createCharacter(container: HTMLElement, { size = 150 } = {}) {
   // 프레임 모션이 없을 때만 CSS 움직임을 켠다 (활동 중이면 활동 움직임 우선)
   function applyMotion(isStatic: boolean) {
     let motion = '';
-    if (isStatic) {
+    if (isStatic && !still) {
       if (activity) motion = ACTIVITIES[activity].motion;
       else if (isStatus(status)) motion = STATES[status].motion;
     }
@@ -188,6 +205,12 @@ export function createCharacter(container: HTMLElement, { size = 150 } = {}) {
     return render();
   }
 
+  function setAppearance(next: Appearance) {
+    appearance = next;
+    rigReady = loadRig();
+    return render();
+  }
+
   // 걷기 모션은 오른쪽을 보는 그림 기준. 왼쪽으로 갈 때 좌우 반전
   function setActivity(next: ActivityId | null, dir: 1 | -1 = 1) {
     facingLeft = next !== null && dir < 0;
@@ -222,7 +245,7 @@ export function createCharacter(container: HTMLElement, { size = 150 } = {}) {
 
   setSize(size);
 
-  return { el, setStatus, setActivity, setSize, hitTest };
+  return { el, setStatus, setActivity, setAppearance, setSize, hitTest };
 }
 
 export type Character = ReturnType<typeof createCharacter>;

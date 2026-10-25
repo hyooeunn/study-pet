@@ -1,4 +1,4 @@
-import { app, type BrowserWindow } from 'electron';
+import { app, Menu, type BrowserWindow } from 'electron';
 
 export const isMac = process.platform === 'darwin';
 export const isWin = process.platform === 'win32';
@@ -14,6 +14,8 @@ export function beforeReady() {
 export function onReady() {
   // [mac] 독 아이콘 숨기기
   if (isMac) app.dock?.hide();
+  // [mac] 앱 메뉴가 없으면 입력칸에서 Cmd+C/V/Z가 안 먹어서 편집 메뉴만 등록 (화면엔 안 보임)
+  if (isMac) Menu.setApplicationMenu(Menu.buildFromTemplate([{ role: 'editMenu' }]));
 }
 
 export function applyWindowTweaks(win: BrowserWindow) {

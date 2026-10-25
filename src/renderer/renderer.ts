@@ -12,7 +12,10 @@ const $ = (id: string) => document.getElementById(id)!;
 const stage = $('stage');
 const timerEl = $('timer');
 
-const character = createCharacter(stage, { size: 150 });
+store.setProfile(await api.getProfile());
+api.onProfileChanged((profile) => store.setProfile(profile));
+
+const character = createCharacter(stage, { size: 150, appearance: store.getState().profile?.appearance });
 const drag = setupDrag(character.el);
 
 // 돌아다녀도 되는 상태 + 마우스가 안 올라가 있을 때만 걷기 (드래그·메뉴는 main이 따로 멈춤)
@@ -68,6 +71,9 @@ store.subscribe((next, prev) => {
   if (next.status !== prev.status) {
     character.setStatus(next.status);
     syncWander();
+  }
+  if (next.profile && next.profile.appearance !== prev.profile?.appearance) {
+    character.setAppearance(next.profile.appearance);
   }
   renderTimer();
 });

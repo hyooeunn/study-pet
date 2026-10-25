@@ -2,12 +2,14 @@ import { spawn } from 'node:child_process';
 import { watch } from 'node:fs';
 import path from 'node:path';
 import electronPath from 'electron';
-import { ROOT, build, copyHtml, watchCss, watchTs } from './build.mjs';
+import { HTML_DIR, ROOT, build, copyHtml, watchCss, watchTs } from './build.mjs';
 
 build();
 
 const watchers = [watchTs(), watchCss()];
-const htmlWatcher = watch(path.join(ROOT, 'src/renderer/index.html'), () => copyHtml());
+const htmlWatcher = watch(HTML_DIR, (_event, file) => {
+  if (file?.endsWith('.html')) copyHtml();
+});
 
 // VS Code 등에서 이 값이 1이면 Electron이 앱이 아닌 Node로 실행돼 버림
 const env = { ...process.env };

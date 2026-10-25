@@ -17,6 +17,17 @@ export type MenuItemSpec =
   | { kind: 'item'; id: string; label: string; enabled?: boolean; checked?: boolean }
   | { kind: 'submenu'; label: string; submenu: MenuItemSpec[] };
 
+// ---------- 내 캐릭터 프로필 (처음 실행 때 만들기, userData/profile.json에 저장) ----------
+
+export interface Appearance {
+  hairColor: string; // items.json 경로의 {hairColor} 자리에 들어감
+}
+
+export interface Profile {
+  nickname: string;
+  appearance: Appearance;
+}
+
 // ---------- 파츠 조립 캐릭터 (assets/pet/rig.json, items.json) ----------
 
 export type Vec2 = [number, number];
@@ -69,6 +80,9 @@ export interface PetAPI {
   showMenu(items: MenuItemSpec[]): void;
   loadLayer(candidates: string[]): Promise<LayerData | null>;
   loadRig(): Promise<PetRig | null>;
+  getProfile(): Promise<Profile | null>;
+  saveProfile(profile: Profile): Promise<boolean>;
+  onProfileChanged(callback: (profile: Profile) => void): () => void;
   onMenuAction(callback: (id: string) => void): () => void;
   setWanderAllowed(allowed: boolean): void;
   onWalk(callback: (info: WalkInfo | null) => void): () => void;

@@ -1,5 +1,5 @@
 import { execFileSync, spawn } from 'node:child_process';
-import { cpSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { cpSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -21,9 +21,13 @@ export function spawnNode(script, args) {
   return spawn(process.execPath, [script, ...args], { cwd: ROOT, stdio: 'inherit' });
 }
 
+export const HTML_DIR = path.join(ROOT, 'src/renderer');
+
 export function copyHtml() {
   mkdirSync(path.join(ROOT, 'out/renderer'), { recursive: true });
-  cpSync(path.join(ROOT, 'src/renderer/index.html'), path.join(ROOT, 'out/renderer/index.html'));
+  for (const file of readdirSync(HTML_DIR).filter((f) => f.endsWith('.html'))) {
+    cpSync(path.join(HTML_DIR, file), path.join(ROOT, 'out/renderer', file));
+  }
 }
 
 export function watchTs() {

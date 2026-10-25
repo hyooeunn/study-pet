@@ -1,4 +1,4 @@
-import type { ItemDef, ItemSlot, PetRig, RigData, RigPartId, Vec2 } from '../shared/ipc.js';
+import type { Appearance, ItemDef, ItemSlot, PetRig, RigData, RigPartId, Vec2 } from '../shared/ipc.js';
 
 const PARTS: RigPartId[] = ['head', 'face', 'torso', 'arm_l', 'arm_r', 'leg_l', 'leg_r'];
 // crop 바깥으로 이만큼 여유를 더 그림 (머리 위 포니테일, 몸이 들썩이는 양이 잘리지 않게)
@@ -66,7 +66,12 @@ async function loadSprite(rel: string, canvasSize: number): Promise<Sprite | nul
   return { bitmap: await createImageBitmap(img, x, y, w, h), x, y, mask, maskSize: n };
 }
 
-export async function loadRigModel(): Promise<RigModel | null> {
+// items.json 경로의 {hairColor} 같은 자리를 내 캐릭터 설정값으로 채움
+function fillTemplate(image: string, appearance: Appearance) {
+  return image.replace(/\{(\w+)\}/g, (_, key: string) => String(appearance[key as keyof Appearance] ?? ''));
+}
+
+export async function loadRigModel(appearance: Appearance): Promise<RigModel | null> {
   const data: PetRig | null = await window.petAPI.loadRig().catch(() => null);
   if (!data) return null;
   const size = data.rig.canvas[0];
@@ -78,7 +83,7 @@ export async function loadRigModel(): Promise<RigModel | null> {
   const items = (
     await Promise.all(
       data.items.map(async (item) => {
-        const sprite = await loadSprite(`pet/${item.image}`, size);
+        const sprite = await loadSprite(`pet/${fillTemplate(item.image, appearance)}`, size);
         return sprite && PARTS.includes(item.attachTo) ? { ...item, sprite } : null;
       })
     )

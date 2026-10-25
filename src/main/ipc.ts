@@ -11,7 +11,8 @@ import {
 } from 'electron';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { ItemDef, LayerData, MenuItemSpec, MotionFrame, PetRig, RigData } from '../shared/ipc.js';
+import type { ItemDef, LayerData, MenuItemSpec, MotionFrame, PetRig, Profile, RigData } from '../shared/ipc.js';
+import { loadProfile, sanitizeProfile, saveProfile } from './profile.js';
 import { createWanderer } from './wander.js';
 import { startIdleWatch } from './idle.js';
 
@@ -130,12 +131,24 @@ function toTemplate(items: MenuItemSpec[], send: (id: string) => void): MenuItem
   });
 }
 
-export function registerIpc(getWin: () => BrowserWindow | null) {
-  // 우리 펫 창에서 온 요청만 받는다
+interface IpcOptions {
+  getPet: () => BrowserWindow | null;
+  getSetup: () => BrowserWindow | null;
+  openSetup: () => void;
+  onProfileSaved: (profile: Profile) => void;
+}
+
+export function registerIpc({ getPet: getWin, getSetup, openSetup, onProfileSaved }: IpcOptions) {
+  const isLive = (win: BrowserWindow | null, event: IpcMainEvent | IpcMainInvokeEvent) =>
+    !!win && !win.isDestroyed() && event.sender === win.webContents;
+
+  // 펫 창에서 온 요청만 받는다
   const ownWin = (event: IpcMainEvent | IpcMainInvokeEvent) => {
     const win = getWin();
-    return win && !win.isDestroyed() && event.sender === win.webContents ? win : null;
+    return isLive(win, event) ? win : null;
   };
+  // 그림·프로필은 캐릭터 만들기 창에서도 쓴다
+  const fromOurs = (event: IpcMainEvent | IpcMainInvokeEvent) => isLive(getWin(), event) || isLive(getSetup(), event);
 
   const wanderer = createWanderer(getWin, (info) => {
     const win = getWin();
@@ -189,6 +202,7 @@ export function registerIpc(getWin: () => BrowserWindow | null) {
     const template: MenuItemConstructorOptions[] = [
       ...toTemplate(items as MenuItemSpec[], send),
       { type: 'separator' },
+      { label: '캐릭터 꾸미기', click: openSetup },
       { label: '펫 끄기', click: () => app.quit() },
     ];
     wanderer.hold('menu', true);
@@ -196,7 +210,7 @@ export function registerIpc(getWin: () => BrowserWindow | null) {
   });
 
   ipcMain.handle('pet:load-layer', (e, candidates: unknown) => {
-    if (!ownWin(e) || !Array.isArray(candidates)) return null;
+    if (!fromOurs(e) || !Array.isArray(candidates)) return null;
     for (const rel of candidates) {
       if (typeof rel !== 'string') continue;
       const layer = readLayer(rel);
@@ -205,5 +219,16 @@ export function registerIpc(getWin: () => BrowserWindow | null) {
     return null;
   });
 
-  ipcMain.handle('pet:load-rig', (e) => (ownWin(e) ? readRig() : null));
+  ipcMain.handle('pet:load-rig', (e) => (fromOurs(e) ? readRig() : null));
+
+  ipcMain.handle('profile:get', (e) => (fromOurs(e) ? loadProfile() : null));
+
+  ipcMain.handle('profile:save', (e, input: unknown) => {
+    if (!isLive(getSetup(), e)) return false;
+    const profile = sanitizeProfile(input);
+    if (!profile) return false;
+    saveProfile(profile);
+    onProfileSaved(profile);
+    return true;
+  });
 }

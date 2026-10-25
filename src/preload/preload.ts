@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { PetAPI, WalkInfo } from '../shared/ipc.js';
+import type { PetAPI, Profile, WalkInfo } from '../shared/ipc.js';
 
 // sandbox preload는 다른 로컬 파일을 require할 수 없어서 타입만 import (import type)
 const api: PetAPI = {
@@ -10,6 +10,13 @@ const api: PetAPI = {
   showMenu: (items) => ipcRenderer.send('pet:show-menu', items),
   loadLayer: (candidates) => ipcRenderer.invoke('pet:load-layer', candidates),
   loadRig: () => ipcRenderer.invoke('pet:load-rig'),
+  getProfile: () => ipcRenderer.invoke('profile:get'),
+  saveProfile: (profile) => ipcRenderer.invoke('profile:save', profile),
+  onProfileChanged: (callback) => {
+    const handler = (_event: Electron.IpcRendererEvent, profile: Profile) => callback(profile);
+    ipcRenderer.on('profile:changed', handler);
+    return () => ipcRenderer.removeListener('profile:changed', handler);
+  },
   onMenuAction: (callback) => {
     const handler = (_event: Electron.IpcRendererEvent, id: string) => callback(id);
     ipcRenderer.on('pet:menu-action', handler);
