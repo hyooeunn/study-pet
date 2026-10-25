@@ -16,7 +16,7 @@
       <p id="preview-name" class="h-7 min-w-16 rounded-full bg-white/80 px-3 text-center text-sm leading-7 font-semibold text-stone-600 empty:invisible"></p>
     </section>
 
-    <form id="form" class="flex flex-1 flex-col gap-7 px-8 py-9" autocomplete="off">
+    <form id="form" class="flex flex-1 flex-col gap-6 px-8 py-8" autocomplete="off">
       <div>
         <h1 id="title" class="text-xl font-bold">내 캐릭터 만들기</h1>
         <p id="subtitle" class="mt-1 text-sm text-stone-500">친구들에게 보일 모습을 골라 줘</p>
@@ -32,9 +32,14 @@
         />
       </label>
 
-      <fieldset class="flex flex-col gap-3">
+      <fieldset class="flex flex-col">
         <legend class="mb-3 text-sm font-semibold">머리색</legend>
-        <div id="hair-colors" class="flex gap-4"></div>
+        <div id="hair-colors" class="flex items-center gap-2.5"></div>
+      </fieldset>
+
+      <fieldset class="flex flex-col">
+        <legend class="mb-3 text-sm font-semibold">피부색</legend>
+        <div id="skin-colors" class="flex items-center gap-2.5"></div>
       </fieldset>
 
       <button

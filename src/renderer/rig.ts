@@ -1,18 +1,40 @@
 import type { Appearance, ItemDef, ItemSlot, PetRig, RigData, RigPartId, Vec2 } from '../shared/ipc.js';
+import { BASE_COLORS, recolor, tintWeights, type Tint } from './recolor.js';
 
 const PARTS: RigPartId[] = ['head', 'face', 'torso', 'arm_l', 'arm_r', 'leg_l', 'leg_r'];
+// 피부색을 바꿀 파츠 (face는 눈·입만 있어서 제외)
+const SKIN_PARTS = new Set<RigPartId>(['head', 'torso', 'arm_l', 'arm_r', 'leg_l', 'leg_r']);
+// 있으면 쓰는 추가 레이어. 피부색 변환 없이 붙은 파츠와 같이 움직임 (assets/pet/blush.png 넣으면 볼터치)
+const OVERLAYS: { id: string; attachTo: RigPartId }[] = [{ id: 'blush', attachTo: 'head' }];
 // crop 바깥으로 이만큼 여유를 더 그림 (머리 위 포니테일, 몸이 들썩이는 양이 잘리지 않게)
 const MARGIN = 0.15;
+// 원본 2048을 이 비율로 줄여서 보관 (화면엔 약 0.2배로 그려지니 0.5면 고해상도 화면에서도 충분)
+const STORE_SCALE = 0.5;
 
 interface Sprite {
   bitmap: ImageBitmap;
-  x: number; // 원본 2048 캔버스에서 잘라 낸 위치
+  x: number; // 원본 2048 캔버스 기준 위치·크기
   y: number;
+  w: number;
+  h: number;
   mask: Uint8Array;
   maskSize: number;
 }
 
+// 파일당 한 번만 만드는 원본 데이터 (줄인 픽셀 + 색 바꾸기용 가중치)
+interface SpriteSource extends Omit<Sprite, 'bitmap'> {
+  pixels: ImageData;
+  tint: Tint | null;
+  weights: Float32Array | null;
+  plain: ImageBitmap;
+}
+
 interface LoadedItem extends ItemDef {
+  sprite: Sprite;
+}
+
+interface LoadedOverlay {
+  attachTo: RigPartId;
   sprite: Sprite;
 }
 
@@ -20,6 +42,7 @@ export interface RigModel {
   rig: RigData;
   parts: Record<RigPartId, Sprite>;
   items: LoadedItem[];
+  overlays: LoadedOverlay[];
 }
 
 type Pose = Record<RigPartId, DOMMatrix> & { legOrder: ['leg_l' | 'leg_r', 'leg_l' | 'leg_r']; uL: number };
@@ -33,8 +56,11 @@ function assetUrl(p: string) {
   return '../../assets/' + p.split('/').map(encodeURIComponent).join('/');
 }
 
-// 마스크(64x64)로 그림이 있는 영역만 잘라서 매 프레임 2048 전체를 그리지 않게 함
-async function loadSprite(rel: string, canvasSize: number): Promise<Sprite | null> {
+const sourceCache = new Map<string, Promise<SpriteSource | null>>();
+const tintCache = new Map<string, { color: string; bitmap: ImageBitmap }>();
+
+// 마스크(64x64)로 그림이 있는 영역만 잘라서, 줄인 픽셀로 보관
+async function loadSource(rel: string, canvasSize: number, tint: Tint | null): Promise<SpriteSource | null> {
   const layer = await window.petAPI.loadLayer([rel]).catch(() => null);
   if (!layer) return null;
   const { mask } = layer.frames[0];
@@ -63,12 +89,47 @@ async function loadSprite(rel: string, canvasSize: number): Promise<Sprite | nul
   } catch {
     return null;
   }
-  return { bitmap: await createImageBitmap(img, x, y, w, h), x, y, mask, maskSize: n };
+
+  const sw = Math.round(w * STORE_SCALE);
+  const sh = Math.round(h * STORE_SCALE);
+  const off = new OffscreenCanvas(sw, sh);
+  const ctx = off.getContext('2d', { willReadFrequently: true })!;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, x, y, w, h, 0, 0, sw, sh);
+  const pixels = ctx.getImageData(0, 0, sw, sh);
+
+  return {
+    x, y, w, h, mask, maskSize: n,
+    pixels,
+    tint,
+    weights: tint ? tintWeights(tint, pixels) : null,
+    plain: await createImageBitmap(pixels),
+  };
 }
 
-// items.json 경로의 {hairColor} 같은 자리를 내 캐릭터 설정값으로 채움
-function fillTemplate(image: string, appearance: Appearance) {
-  return image.replace(/\{(\w+)\}/g, (_, key: string) => String(appearance[key as keyof Appearance] ?? ''));
+function getSource(rel: string, canvasSize: number, tint: Tint | null) {
+  let p = sourceCache.get(rel);
+  if (!p) {
+    p = loadSource(rel, canvasSize, tint);
+    sourceCache.set(rel, p);
+  }
+  return p;
+}
+
+// 색이 바뀔 때만 다시 계산 (같은 색이면 캐시, 원본 색이면 그림 그대로)
+async function toSprite(rel: string, src: SpriteSource, color?: string): Promise<Sprite> {
+  const { pixels, tint, weights, plain, ...box } = src;
+  if (!tint || !weights || !color || color === BASE_COLORS[tint]) return { ...box, bitmap: plain };
+  const hit = tintCache.get(rel);
+  if (hit?.color === color) return { ...box, bitmap: hit.bitmap };
+  const bitmap = await createImageBitmap(recolor(tint, pixels, weights, color));
+  tintCache.set(rel, { color, bitmap });
+  return { ...box, bitmap };
+}
+
+async function loadSprite(rel: string, canvasSize: number, tint: Tint | null = null, color?: string) {
+  const src = await getSource(rel, canvasSize, tint);
+  return src ? toSprite(rel, src, color) : null;
 }
 
 export async function loadRigModel(appearance: Appearance): Promise<RigModel | null> {
@@ -76,20 +137,34 @@ export async function loadRigModel(appearance: Appearance): Promise<RigModel | n
   if (!data) return null;
   const size = data.rig.canvas[0];
 
-  const sprites = await Promise.all(PARTS.map((id) => loadSprite(`pet/${id}.png`, size)));
+  const sprites = await Promise.all(
+    PARTS.map((id) =>
+      SKIN_PARTS.has(id) ? loadSprite(`pet/${id}.png`, size, 'skin', appearance.skinColor) : loadSprite(`pet/${id}.png`, size)
+    )
+  );
   if (sprites.some((s) => !s)) return null;
   const parts = Object.fromEntries(PARTS.map((id, i) => [id, sprites[i]!])) as Record<RigPartId, Sprite>;
 
   const items = (
     await Promise.all(
       data.items.map(async (item) => {
-        const sprite = await loadSprite(`pet/${fillTemplate(item.image, appearance)}`, size);
+        const color = item.tint === 'hair' ? appearance.hairColor : undefined;
+        const sprite = await loadSprite(`pet/${item.image}`, size, item.tint ?? null, color);
         return sprite && PARTS.includes(item.attachTo) ? { ...item, sprite } : null;
       })
     )
   ).filter((i): i is LoadedItem => i !== null);
 
-  return { rig: data.rig, parts, items };
+  const overlays = (
+    await Promise.all(
+      OVERLAYS.map(async ({ id, attachTo }) => {
+        const sprite = await loadSprite(`pet/${id}.png`, size);
+        return sprite ? { attachTo, sprite } : null;
+      })
+    )
+  ).filter((o): o is LoadedOverlay => o !== null);
+
+  return { rig: data.rig, parts, items, overlays };
 }
 
 // ---------- 포즈 계산 (rig.json 규칙 그대로, 회전 + = 시계방향) ----------
@@ -157,7 +232,7 @@ function walkPose(rig: RigData, k: number): Pose {
 
 // ---------- 그리기 ----------
 
-type DrawStep = { part: RigPartId } | { slot: ItemSlot };
+type DrawStep = { part: RigPartId } | { slot: ItemSlot } | { overlaysOn: RigPartId };
 
 function drawSteps(pose: Pose): DrawStep[] {
   return [
@@ -170,6 +245,7 @@ function drawSteps(pose: Pose): DrawStep[] {
     { part: 'arm_l' },
     { part: 'arm_r' },
     { part: 'head' },
+    { overlaysOn: 'head' }, // 볼터치 자리
     { part: 'face' },
     { slot: 'hair_front' },
   ];
@@ -217,13 +293,17 @@ export function createRigView(model: RigModel, className: string) {
 
     const paint = (sprite: Sprite, matrix: DOMMatrix) => {
       ctx.setTransform(base.multiply(matrix));
-      ctx.drawImage(sprite.bitmap, sprite.x, sprite.y);
+      ctx.drawImage(sprite.bitmap, sprite.x, sprite.y, sprite.w, sprite.h);
       drawn.push({ sprite, matrix });
     };
 
     for (const step of drawSteps(pose)) {
       if ('part' in step) {
         paint(model.parts[step.part], pose[step.part]);
+      } else if ('overlaysOn' in step) {
+        for (const o of model.overlays) {
+          if (o.attachTo === step.overlaysOn) paint(o.sprite, pose[o.attachTo]);
+        }
       } else {
         for (const item of model.items) {
           if (item.slot === step.slot) paint(item.sprite, itemMatrix(item, pose, walking));
