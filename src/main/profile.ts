@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import type { Profile } from '../shared/ipc.js';
 
 const NICKNAME_MAX = 12;
+const DEFAULT_STYLE = 'ponytail';
 const DEFAULT_HAIR = '#493b30'; // 원본 그림의 머리색 (갈색)
 const DEFAULT_SKIN = '#ffeae4'; // 원본 그림의 피부색
 
@@ -31,6 +32,9 @@ export function sanitizeProfile(input: unknown): Profile | null {
   return {
     nickname,
     appearance: {
+      hairStyle: typeof p?.appearance?.hairStyle === 'string' && /^[a-z0-9_]+$/.test(p.appearance.hairStyle)
+        ? p.appearance.hairStyle
+        : DEFAULT_STYLE,
       hairColor: toHex(LEGACY_HAIR[hair as string] ?? hair, DEFAULT_HAIR),
       // 예전 프로필(피부색 없음)은 기본 피부색으로
       skinColor: toHex(skin, DEFAULT_SKIN),

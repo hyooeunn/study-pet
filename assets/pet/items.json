@@ -1,38 +1,59 @@
 {
-  "_note": "착용 아이템 목록. 그리는 순서는 slot이 정하고, 같은 slot 안에서는 이 배열 순서. tint: hair 인 그림은 캐릭터 만들기에서 고른 머리색으로 자동으로 칠해짐 (원본은 갈색으로 그림, 머리끈처럼 채도 높은 부분은 머리색에서 빠짐). 흔들림 없이 쓰려면 아래 세 개 대신 ponytail/full.png 한 줄만. accent: accessory 인 그림은 채도 높은 부분(머리끈 등)이 고른 악세사리 색으로 바뀜",
-  "items": [
-    {
-      "id": "ponytail_band",
-      "image": "items/hair/ponytail/band.png",
-      "slot": "hair_front",
-      "attachTo": "head",
-      "tint": "hair",
-      "accent": "accessory"
-    },
-    {
-      "id": "ponytail_bangs",
-      "image": "items/hair/ponytail/bangs.png",
-      "slot": "hair_front",
-      "attachTo": "head",
-      "tint": "hair",
-      "sway": {
-        "pivot": [1002, 633],
-        "deg": 3,
-        "lag": 0.1
-      }
-    },
-    {
-      "id": "ponytail_tail",
-      "image": "items/hair/ponytail/tail.png",
-      "slot": "hair_front",
-      "attachTo": "head",
-      "tint": "hair",
-      "sway": {
-        "pivot": [1035, 467],
-        "deg": 5,
-        "lag": 0.25
+  "_note": "hairStyles = 고를 수 있는 머리 모양 (캐릭터 만들기에서 하나 선택), items = 항상 입는 아이템. 그리는 순서는 slot이 정하고, 같은 slot 안에서는 배열 순서. tint: hair 는 고른 머리색으로 칠함(원본은 갈색으로 그림), accent: accessory 는 채도 높은 부분(머리끈 등)을 악세사리 색으로 칠함. 머리 모양 추가 = 여기에 묶음 하나 + src/renderer/appearance.config.ts 의 HAIR_STYLES 에 이름 한 줄",
+  "hairStyles": {
+    "ponytail": [
+      {
+        "id": "ponytail_band",
+        "image": "items/hair/ponytail/band.png",
+        "slot": "hair_front",
+        "attachTo": "head",
+        "tint": "hair",
+        "accent": "accessory"
       },
-      "accent": "accessory"
-    }
-  ]
+      {
+        "id": "ponytail_bangs",
+        "image": "items/hair/ponytail/bangs.png",
+        "slot": "hair_front",
+        "attachTo": "head",
+        "tint": "hair",
+        "sway": { "pivot": [1002, 633], "deg": 3, "lag": 0.1 }
+      },
+      {
+        "id": "ponytail_tail",
+        "image": "items/hair/ponytail/tail.png",
+        "slot": "hair_front",
+        "attachTo": "head",
+        "tint": "hair",
+        "accent": "accessory",
+        "sway": { "pivot": [1035, 467], "deg": 5, "lag": 0.25 }
+      }
+    ],
+    "long": [
+      {
+        "id": "long_band",
+        "image": "items/hair/long/band.png",
+        "slot": "hair_front",
+        "attachTo": "head",
+        "tint": "hair"
+      },
+      {
+        "id": "long_bangs",
+        "image": "items/hair/long/bangs.png",
+        "slot": "hair_front",
+        "attachTo": "head",
+        "tint": "hair",
+        "sway": { "pivot": [1000, 668], "deg": 2.5, "lag": 0.1 }
+      }
+    ],
+    "long_open": [
+      {
+        "id": "long_open",
+        "image": "items/hair/long/open.png",
+        "slot": "hair_front",
+        "attachTo": "head",
+        "tint": "hair"
+      }
+    ]
+  },
+  "items": []
 }

@@ -20,6 +20,7 @@ export type MenuItemSpec =
 // ---------- 내 캐릭터 프로필 (처음 실행 때 만들기, userData/profile.json에 저장) ----------
 
 export interface Appearance {
+  hairStyle: string; // items.json hairStyles의 이름 (ponytail, long ...)
   hairColor: string; // '#rrggbb'. items.json에서 tint: 'hair'인 그림을 이 색으로 칠함
   skinColor: string; // '#rrggbb'. 파츠의 피부 픽셀을 이 색으로 바꿈
   accessoryColor: string | null; // '#rrggbb' 또는 null(그린 색 그대로). 머리끈 같은 악세사리 색
@@ -69,7 +70,8 @@ export interface ItemDef {
 
 export interface PetRig {
   rig: RigData;
-  items: ItemDef[];
+  items: ItemDef[];                     // 항상 입는 아이템
+  hairStyles: Record<string, ItemDef[]>; // 고를 수 있는 머리 모양
 }
 
 export interface WalkInfo {

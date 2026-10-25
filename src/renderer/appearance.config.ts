@@ -1,5 +1,12 @@
 import type { Appearance } from '../shared/ipc.js';
 
+// 머리 모양. id는 assets/pet/items.json 의 hairStyles 이름과 같아야 함
+export const HAIR_STYLES = [
+  { id: 'ponytail', label: '포니테일' },
+  { id: 'long', label: '장발' },
+  { id: 'long_open', label: '장발 · 앞머리 없음' },
+] as const;
+
 // 팔레트 첫 번째 = 원본 그림의 색 (아무것도 안 바뀜). 색 추가 = 여기에 한 줄
 export const HAIR_COLORS = [
   { color: '#493b30', label: '갈색' },
@@ -28,6 +35,7 @@ export const ACCESSORY_COLORS = [
 ] as const;
 
 export const DEFAULT_APPEARANCE: Appearance = {
+  hairStyle: HAIR_STYLES[0].id,
   hairColor: HAIR_COLORS[0].color,
   skinColor: SKIN_COLORS[0].color,
   accessoryColor: null,

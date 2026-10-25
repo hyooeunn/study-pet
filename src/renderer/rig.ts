@@ -152,9 +152,13 @@ export async function loadRigModel(appearance: Appearance): Promise<RigModel | n
   if (sprites.some((s) => !s)) return null;
   const parts = Object.fromEntries(PARTS.map((id, i) => [id, sprites[i]!])) as Record<RigPartId, Sprite>;
 
+  // 고른 머리 모양이 없으면(지워졌거나 이름이 틀리면) 첫 번째 머리 모양으로
+  const styles = Object.values(data.hairStyles);
+  const hair = data.hairStyles[appearance.hairStyle] ?? styles[0] ?? [];
+
   const items = (
     await Promise.all(
-      data.items.map(async (item) => {
+      [...data.items, ...hair].map(async (item) => {
         const sprite = await loadSprite(`pet/${item.image}`, size, {
           tint: item.tint,
           color: item.tint === 'hair' ? appearance.hairColor : undefined,

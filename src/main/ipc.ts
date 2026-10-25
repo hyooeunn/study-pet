@@ -108,8 +108,8 @@ function readJson<T>(rel: string): T | null {
 function readRig(): PetRig | null {
   const rig = readJson<RigData>('pet/rig.json');
   if (!rig?.pivots || !rig.params || !rig.crop) return null;
-  const items = readJson<{ items?: ItemDef[] }>('pet/items.json')?.items ?? [];
-  return { rig, items };
+  const json = readJson<{ items?: ItemDef[]; hairStyles?: Record<string, ItemDef[]> }>('pet/items.json');
+  return { rig, items: json?.items ?? [], hairStyles: json?.hairStyles ?? {} };
 }
 
 function toTemplate(items: MenuItemSpec[], send: (id: string) => void): MenuItemConstructorOptions[] {
