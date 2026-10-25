@@ -1,17 +1,9 @@
 import { STATES, DEFAULT_STATE, isStatus, type StatusId } from './states.config.js';
 import { createStopwatch } from './timer.js';
 
-export interface Appearance {
-  base?: string;
-  hair?: string;
-  outfit?: string;
-  accessory?: string;
-}
-
 export interface PetState {
   status: StatusId;
-  scale: number;                 // 설정 단계에서 0.8 ~ 2.0
-  appearance: Appearance | null; // 파츠 단계에서 사용
+  scale: number; // 설정 단계에서 0.8 ~ 2.0
 }
 
 type Listener = (next: PetState, prev: PetState) => void;
@@ -23,7 +15,6 @@ let autoNextTimer: ReturnType<typeof setTimeout> | undefined;
 const state: PetState = {
   status: DEFAULT_STATE,
   scale: 1,
-  appearance: null,
 };
 
 export function getState(): PetState {

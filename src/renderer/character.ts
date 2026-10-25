@@ -1,14 +1,14 @@
 import type { LayerData } from '../shared/ipc.js';
-import type { Appearance } from './state.js';
 import { ACTIVITIES, STATES, isStatus, type ActivityId } from './states.config.js';
+import { createRigView, loadRigModel, type RigView } from './rig.js';
 
 const ASSET_BASE = '../../assets/';
-const PART_ORDER = ['base', 'hair', 'outfit', 'accessory'] as const;
 
 const FLIP_CLASS = 'absolute inset-0 transition-transform duration-150';
 const SPRITE_CLASS =
   'absolute inset-0 origin-[50%_85%] group-[.dragging]/char:animate-pet-wiggle motion-reduce:animate-none';
 const LAYER_CLASS = 'absolute inset-0 size-full object-contain pointer-events-none';
+const CANVAS_CLASS = 'absolute pointer-events-none';
 const PLACEHOLDER_CLASS =
   'placeholder absolute inset-[10%] rounded-full bg-radial-[at_35%_30%] to-70% shadow-[inset_-6px_-8px_0_rgb(0_0_0/0.08)]';
 const PLACEHOLDER_FACE = `
@@ -24,20 +24,13 @@ interface LoadedLayer extends LayerData {
 // 이름 하나에 대해 "모션 폴더 → 한 장짜리 PNG" 순서로 찾는다
 const variants = (name: string) => [name, `${name}.png`];
 
-// 레이어마다 "이 순서로 찾아보고 처음 있는 걸 쓴다"는 후보 목록
-function layerCandidates(status: string, activity: ActivityId | null, appearance: Appearance | null): string[][] {
-  const lists = !appearance
-    ? [[...variants(`states/${status}`), ...variants('base')]]
-    : PART_ORDER.flatMap((part) => {
-        const id = appearance[part];
-        if (part === 'base') {
-          return [[...variants(`parts/base/${status}`), ...variants(`parts/base/${id || 'default'}`)]];
-        }
-        return id ? [variants(`parts/${part}/${id}`)] : [];
-      });
-  // 활동 중이면 활동 모션을 맨 앞에 끼워 넣음 (없으면 상태 이미지로 대체)
-  if (activity && lists[0]) lists[0] = [...variants(`motions/${activity}`), ...lists[0]];
-  return lists;
+// 그림 파일 후보. 파츠 조립 캐릭터(rig)가 있으면 base 대신 rig가 기본 모습
+function imageCandidates(status: string, activity: ActivityId | null, hasRig: boolean): string[] {
+  return [
+    ...(activity ? variants(`motions/${activity}`) : []),
+    ...variants(`states/${status}`),
+    ...(hasRig ? [] : variants('base')),
+  ];
 }
 
 function assetUrl(p: string) {
@@ -62,11 +55,8 @@ async function loadFrames(layer: LayerData): Promise<LoadedLayer | null> {
   return imgs.every((i): i is HTMLImageElement => i !== null) ? { ...layer, imgs } : null;
 }
 
-// 친구 캐릭터도 이 함수로 만든다: createCharacter(box, { size: 110, appearance })
-export function createCharacter(
-  container: HTMLElement,
-  { size = 150, appearance = null as Appearance | null } = {}
-) {
+// 친구 캐릭터도 이 함수로 만든다: createCharacter(box, { size: 110 })
+export function createCharacter(container: HTMLElement, { size = 150 } = {}) {
   const el = document.createElement('div');
   el.className = 'character group/char relative cursor-grab [&.dragging]:cursor-grabbing';
   const flip = document.createElement('div');
@@ -77,18 +67,29 @@ export function createCharacter(
   el.appendChild(flip);
   container.appendChild(el);
 
+  let currentSize = size;
   let status = '';
   let activity: ActivityId | null = null;
   let facingLeft = false;
   let layers: LoadedLayer[] = [];
   let frameIndex: number[] = [];
   let timers: ReturnType<typeof setInterval>[] = [];
-  let usingPlaceholder = false;
+  let mode: 'images' | 'rig' | 'placeholder' = 'images';
   let renderToken = 0;
 
+  let rigView: RigView | null = null;
+  const rigReady: Promise<RigView | null> = loadRigModel().then((model) => {
+    if (!model) return null;
+    rigView = createRigView(model, CANVAS_CLASS);
+    rigView.setSize(currentSize);
+    return rigView;
+  });
+
   function setSize(px: number) {
+    currentSize = px;
     el.style.width = `${px}px`;
     el.style.height = `${px}px`;
+    rigView?.setSize(px);
   }
 
   // 프레임 모션이 없을 때만 CSS 움직임을 켠다 (활동 중이면 활동 움직임 우선)
@@ -130,8 +131,7 @@ export function createCharacter(
   }
 
   function showPlaceholder() {
-    stopAnimation();
-    usingPlaceholder = true;
+    mode = 'placeholder';
     layers = [];
     const def = isStatus(status) ? STATES[status] : null;
     const ph = document.createElement('div');
@@ -142,27 +142,45 @@ export function createCharacter(
     applyMotion(true);
   }
 
+  function showRig(view: RigView) {
+    mode = 'rig';
+    layers = [];
+    const walking = activity === 'walk';
+    view.setWalking(walking);
+    if (view.canvas.parentElement !== sprite) sprite.replaceChildren(view.canvas);
+    applyMotion(!walking);
+  }
+
+  function showImages(loaded: LoadedLayer[]) {
+    mode = 'images';
+    layers = loaded;
+    sprite.replaceChildren(...layers.flatMap((l) => l.imgs));
+    applyMotion(layers.every((l) => l.frames.length === 1));
+    startAnimation();
+  }
+
   async function render() {
     const token = ++renderToken;
     el.dataset.status = status;
     el.dataset.activity = activity ?? '';
 
-    const found = await Promise.all(
-      layerCandidates(status, activity, appearance).map((c) => window.petAPI.loadLayer(c).catch(() => null))
-    );
-    const loaded = (
-      await Promise.all(found.filter((l): l is LayerData => l !== null).map(loadFrames))
-    ).filter((l): l is LoadedLayer => l !== null);
+    const rig = await rigReady;
+    // rig가 있으면 걷기는 항상 파츠 조립 애니메이션
+    const found =
+      rig && activity === 'walk'
+        ? null
+        : await window.petAPI.loadLayer(imageCandidates(status, activity, !!rig)).catch(() => null);
+    const loaded = found ? await loadFrames(found) : null;
 
     // 빠르게 상태를 연타했을 때 늦게 끝난 옛 요청은 무시
     if (token !== renderToken) return;
-    if (loaded.length === 0) return showPlaceholder();
 
-    usingPlaceholder = false;
-    layers = loaded;
-    sprite.replaceChildren(...layers.flatMap((l) => l.imgs));
-    applyMotion(layers.every((l) => l.frames.length === 1));
-    startAnimation();
+    stopAnimation();
+    if (mode === 'rig' && (loaded || !rig)) rig?.setWalking(false);
+
+    if (loaded) showImages([loaded]);
+    else if (rig) showRig(rig);
+    else showPlaceholder();
   }
 
   function setStatus(next: string) {
@@ -179,21 +197,22 @@ export function createCharacter(
     return render();
   }
 
-  function setAppearance(next: Appearance | null) {
-    appearance = next;
-    return render();
-  }
-
   // 화면 좌표 (x, y)가 캐릭터의 "불투명한" 부분 위인지
   function hitTest(x: number, y: number) {
-    if (usingPlaceholder) {
+    if (mode === 'placeholder') {
       return !!document.elementFromPoint(x, y)?.closest('.placeholder');
     }
-    const r = sprite.getBoundingClientRect();
+
+    const target = mode === 'rig' ? sprite.querySelector('canvas') : sprite;
+    if (!target) return false;
+    const r = target.getBoundingClientRect();
     let u = (x - r.left) / r.width;
     const v = (y - r.top) / r.height;
     if (u < 0 || u >= 1 || v < 0 || v >= 1) return false;
     if (facingLeft) u = 1 - u;
+
+    if (mode === 'rig') return !!rigView?.hitTest(u, v);
+
     return layers.some((layer, li) => {
       const { mask } = layer.frames[frameIndex[li]];
       const n = layer.size;
@@ -203,7 +222,7 @@ export function createCharacter(
 
   setSize(size);
 
-  return { el, setStatus, setActivity, setAppearance, setSize, hitTest };
+  return { el, setStatus, setActivity, setSize, hitTest };
 }
 
 export type Character = ReturnType<typeof createCharacter>;

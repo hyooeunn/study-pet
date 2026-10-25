@@ -1,0 +1,63 @@
+{
+  "canvas": [
+    2048,
+    2048
+  ],
+  "note": "arm_l/leg_l = 화면 기준 왼쪽. 모든 파츠는 2048x2048 투명 PNG, 위치 그대로 겹치면 원본 캐릭터가 됨",
+  "drawOrder": [
+    "leg(든 발이 위)",
+    "hair_back",
+    "torso",
+    "arm_l",
+    "arm_r",
+    "head",
+    "face",
+    "hair_front"
+  ],
+  "pivots": {
+    "roll": [
+      1008,
+      1700
+    ],
+    "neck": [
+      1030,
+      1225
+    ],
+    "shoulderL": [
+      868,
+      1338
+    ],
+    "shoulderR": [
+      1186,
+      1334
+    ],
+    "hipL": [
+      940,
+      1548
+    ],
+    "hipR": [
+      1090,
+      1548
+    ]
+  },
+  "params": {
+    "frames": 8,
+    "fps": 10,
+    "footTravelPx": 22,
+    "footLiftPx": 38,
+    "rollDeg": 3.5,
+    "leanDeg": 2.5,
+    "bobPx": 10,
+    "armBaseDeg": 6,
+    "armSwingDeg": 9,
+    "legLenPx": 170,
+    "faceShiftPx": 40,
+    "headCounterRoll": 0.45,
+    "legSwayFollow": 0.75
+  },
+  "crop": {
+    "x": 323,
+    "y": 400,
+    "size": 1400
+  }
+}

@@ -9,6 +9,7 @@ const api: PetAPI = {
   dragEnd: () => ipcRenderer.send('pet:drag-end'),
   showMenu: (items) => ipcRenderer.send('pet:show-menu', items),
   loadLayer: (candidates) => ipcRenderer.invoke('pet:load-layer', candidates),
+  loadRig: () => ipcRenderer.invoke('pet:load-rig'),
   onMenuAction: (callback) => {
     const handler = (_event: Electron.IpcRendererEvent, id: string) => callback(id);
     ipcRenderer.on('pet:menu-action', handler);

@@ -1,0 +1,25 @@
+{
+  "_note": "착용 아이템 목록. 그리는 순서는 slot이 정하고, 같은 slot 안에서는 이 배열 순서. 흔들림 없이 쓰려면 아래 세 개 대신 items/hair/ponytail_full.png 한 줄만 넣으면 됨",
+  "items": [
+    {
+      "id": "ponytail_band",
+      "image": "items/hair/ponytail_band.png",
+      "slot": "hair_front",
+      "attachTo": "head"
+    },
+    {
+      "id": "ponytail_bangs",
+      "image": "items/hair/ponytail_bangs.png",
+      "slot": "hair_front",
+      "attachTo": "head",
+      "sway": { "pivot": [1002, 633], "deg": 3, "lag": 0.1 }
+    },
+    {
+      "id": "ponytail_tail",
+      "image": "items/hair/ponytail_tail.png",
+      "slot": "hair_front",
+      "attachTo": "head",
+      "sway": { "pivot": [1035, 467], "deg": 5, "lag": 0.25 }
+    }
+  ]
+}

@@ -11,7 +11,7 @@ import {
 } from 'electron';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { LayerData, MenuItemSpec, MotionFrame } from '../shared/ipc.js';
+import type { ItemDef, LayerData, MenuItemSpec, MotionFrame, PetRig, RigData } from '../shared/ipc.js';
 import { createWanderer } from './wander.js';
 import { startIdleWatch } from './idle.js';
 
@@ -91,6 +91,24 @@ function readLayer(rel: string): LayerData | null {
 
   if (layer) layerCache.set(rel, layer);
   return layer;
+}
+
+function readJson<T>(rel: string): T | null {
+  const full = resolveAsset(rel);
+  if (!full) return null;
+  try {
+    return JSON.parse(fs.readFileSync(full, 'utf8')) as T;
+  } catch {
+    return null;
+  }
+}
+
+// assets/pet/rig.json이 있으면 파츠 조립 모드. 매번 새로 읽어서 json 수정이 새로고침만으로 반영됨
+function readRig(): PetRig | null {
+  const rig = readJson<RigData>('pet/rig.json');
+  if (!rig?.pivots || !rig.params || !rig.crop) return null;
+  const items = readJson<{ items?: ItemDef[] }>('pet/items.json')?.items ?? [];
+  return { rig, items };
 }
 
 function toTemplate(items: MenuItemSpec[], send: (id: string) => void): MenuItemConstructorOptions[] {
@@ -186,4 +204,6 @@ export function registerIpc(getWin: () => BrowserWindow | null) {
     }
     return null;
   });
+
+  ipcMain.handle('pet:load-rig', (e) => (ownWin(e) ? readRig() : null));
 }
